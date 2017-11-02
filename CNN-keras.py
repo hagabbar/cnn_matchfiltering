@@ -9,15 +9,15 @@ import numpy as np
 np.random.seed(1234)
 import cPickle as pickle
 import h5py
-from keras.layers import Conv2D, MaxPool2D,Dense, Activation, Dropout, GaussianDropout, ActivityRegularization, Flatten
+from keras.layers import Conv2D, MaxPooling2D,Dense, Activation, Dropout, GaussianDropout, ActivityRegularization, Flatten
 from keras.optimizers import *
 from keras.layers.normalization import BatchNormalization
-from keras import initializers
+#from keras import initializers
 from keras.activations import softmax, relu, elu
-from keras.utils import to_categorical
+#from keras.utils import to_categorical
 import os, sys, shutil
 from math import exp, log
-#import tensorflow as tf
+import tensorflow as tf
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from keras.models import load_model
 from matplotlib import use
@@ -181,8 +181,8 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
                 data_format='channels_first',
                 dilation_rate=netargs.dilation[i],
                 use_bias=True,
-                kernel_initializer=initializers.glorot_normal(),
-                bias_initializer=initializers.glorot_normal(),
+                kernel_initializer=keras.initializers.glorot_normal(),
+                bias_initializer=keras.initializers.glorot_normal(),
                 kernel_regularizer=None,
                 bias_regularizer=None,
                 activity_regularizer=None,
@@ -199,7 +199,7 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
             model.add(GaussianDropout(netargs.dropout[i]))
 
             if netargs.pooling[i]:
-                model.add(MaxPool2D(
+                model.add(MaxPooling2D(
                     pool_size=netargs.pool_size[i],
                     strides=netargs.pool_stride[i],
                     padding='valid',
@@ -419,11 +419,11 @@ def load_data(args, netargs):
     channels = 1
 
     x_train = train_set[0].reshape(Ntrain, channels, xshape, yshape)
-    y_train = to_categorical(train_set[1], num_classes=netargs.num_classes)
+    y_train = keras.utils.to_categorical(train_set[1], num_classes=netargs.num_classes)
     x_val = valid_set[0].reshape(valid_set[0].shape[0], channels, xshape, yshape)
-    y_val = to_categorical(valid_set[1], num_classes=netargs.num_classes)
+    y_val = keras.utils.to_categorical(valid_set[1], num_classes=netargs.num_classes)
     x_test = test_set[0].reshape(test_set[0].shape[0], channels, xshape, yshape)
-    y_test = to_categorical(test_set[1], num_classes=netargs.num_classes)
+    y_test = keras.utils.to_categorical(test_set[1], num_classes=netargs.num_classes)
 
     print('Traning set dimensions: {0}'.format(x_train.shape))
     print('Validation set dimensions: {0}'.format(x_val.shape))
