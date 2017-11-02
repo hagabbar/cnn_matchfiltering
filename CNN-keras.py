@@ -2,6 +2,7 @@
 
 from __future__ import print_function, division
 import argparse
+import shutil
 import keras
 from keras.models import Sequential
 import numpy as np
@@ -9,7 +10,7 @@ np.random.seed(1234)
 import cPickle as pickle
 import h5py
 from keras.layers import Conv2D, MaxPool2D,Dense, Activation, Dropout, GaussianDropout, ActivityRegularization, Flatten
-from keras.optimizers import SGD, RMSprop, Adam
+from keras.optimizers import *
 from keras.layers.normalization import BatchNormalization
 from keras import initializers
 from keras.activations import softmax, relu, elu
@@ -18,10 +19,12 @@ import os, sys, shutil
 from math import exp, log
 #import tensorflow as tf
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from keras.models import load_model
 from matplotlib import use
 use('Agg')
 from matplotlib import pyplot as plt
 
+from clr_callback import *
 
 def parser():
     """
@@ -53,6 +56,10 @@ def parser():
                         help='path to the data')
     parser.add_argument('-bs', '--batch_size', type=int, default=20,
                         help='size of batches used for training/validation')
+    parser.add_argument('-nw', '--noise_weight', type=float, default=1.0,
+                        help='')
+    parser.add_argument('-sw', '--sig_weight', type=float, default=1.0,
+                        help='')
     # arguments for optimizer
     parser.add_argument('-opt', '--optimizer', type=str, default='SGD',
                         help='')
@@ -60,7 +67,9 @@ def parser():
                         help='learning rate')
     parser.add_argument('-mlr', '--max_learning_rate', type=float, default=0.01,
                         help='max learning rate for cyclical learning rates')
-    parser.add_argument('--decay', type=float ,default=0.0,
+    parser.add_argument('-NE', '--n_epochs', type=int, default=20,
+                        help='number of epochs to train for')
+    parser.add_argument('-dy', '--decay', type=float ,default=0.0,
                         help='help')
     parser.add_argument('-ss', '--stepsize', type=float, default=500,
                         help='help')
@@ -76,8 +85,6 @@ def parser():
                         help='')
     parser.add_argument('--beta_2', type=float, default=0.999,
                         help='')
-    parser.add_argument('-NE', '--n_epochs', type=int, default=20,
-                        help='number of epochs to train for')
     parser.add_argument('-pt', '--patience', type=int, default=10,
                         help='')
     parser.add_argument('-lpt', '--LRpatience', type=int, default=5,
@@ -120,6 +127,7 @@ class network_args:
     def __init__(self, args):
         self.features = np.array(args.features.split(','))
         self.num_classes = 2
+        self.class_weight = {0:args.noise_weight, 1:args.sig_weight}
         self.Nfilters = np.array(args.nfilters.split(",")).astype('int')
         self.kernel_size = np.array([i.split("-") for i in np.array(args.filter_size.split(","))]).astype('int')
         self.stride = np.array([i.split("-") for i in np.array(args.filter_stride.split(","))]).astype('int')
@@ -136,19 +144,23 @@ def choose_optimizer(args):
 
     lr = args.lr
 
-    #TODO: add more optimsizers
-    #TODO: cyclical learning rates
-
     if args.optimizer == 'SGD':
         return SGD(lr=lr, momentum=args.momentum, decay=args.decay, nesterov=args.nesterov)
     if args.optimizer == 'RMSprop':
         return RMSprop(lr=lr, rho=args.rho, epsilon=args.epsilon, decay=args.decay)
+    if args.optimizer == 'Adagrad':
+        return Adagrad(lr=lr, epsilon=args.epsilon, decay=args.decay)
+    if args.optimizer == 'Adadelta':
+        return Adadelta(lr=lr, rho=args.rho, epsilon=args.epsilon, decay=args.decay)
     if args.optimizer =='Adam':
+        return Adamax(lr=lr, beta_1=args.beta_1, beta_2=args.beta_2, epsilon=args.epsilon, decay=args.decay)
+    if args.optimizer == 'Adamax':
         return Adam(lr=lr, beta_1=args.beta_1, beta_2=args.beta_2, epsilon=args.epsilon, decay=args.decay)
+    if args.optimizer =='Nadam':
+        return Nadam(lr=lr, beta_1=args.beta_1, beta_2=args.beta_2, epsilon=args.epsilon, schedule_decay=args.decay)
 
 
-
-def network(args, netargs, shape, x_train, y_train, x_val, y_val, x_test, y_test):
+def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test, y_test):
 
     model = Sequential()
 
@@ -160,7 +172,6 @@ def network(args, netargs, shape, x_train, y_train, x_val, y_val, x_test, y_test
 
         if int(op) == 1:
             # standard convolutional layer with max pooling
-            #print('Input shape: {0}'.format(lasagne.layers.get_output_shape(network)))
             model.add(Conv2D(
                 netargs.Nfilters[i],
                 input_shape=shape,
@@ -195,17 +206,8 @@ def network(args, netargs, shape, x_train, y_train, x_val, y_val, x_test, y_test
                     data_format='channels_first'
                 ))
 
-            # print('Layer {0}: convolution + max-pool'.format(i))
-            # print('           N-neurons: {}, filter size: {}, dilation: {}'.format(nkerns[i], filter_size[i]))
-            # print('           filter stride: {}, filter pad: {}'.format(filter_stride[i], filter_pad[i]))
-            # print('           activation function: {}'.format(functions[i]))
-            # print('           pool size: {}, pool stride: {} pool pad: {}'.format(pool_size[i], pool_stride[i], pool_pad[i]))
-            # print('           dropout: {}'.format(dropout[i]))
-            # #print('Output shape: {0}'.format(lasagne.layers.get_output_shape(network)))
-
         elif int(op) == 0:
             # standard fully conected layer
-            # print('Input shape: {0}'.format(lasagne.layers.get_output_shape(network)))
             model.add(Flatten())
             model.add(Dense(
                 netargs.Nfilters[i],
@@ -214,27 +216,13 @@ def network(args, netargs, shape, x_train, y_train, x_val, y_val, x_test, y_test
 
             model.add(GaussianDropout(netargs.dropout[i]))
 
-            # print('Layer {0}: hidden layer'.format(i))
-            # print('           N-neurons: {0}'.format(nkerns[i]))
-            # print('           activation function: {}'.format(functions[i]))
-            # print('           dropout: {0}'.format(dropout[i]))
-
         elif int(op) == 4:
             # softmax output layer
-            # print('Input shape: {0}'.format(lasagne.layers.get_output_shape(network)))
             model.add(Dense(
                 netargs.num_classes,
                 activation=netargs.activation[i]
             ))
-            # network = lasagne.layers.DenseLayer(
-            #     lasagne.layers.dropout(network, p=dropout[i]),
-            #     num_units=nkerns[i],
-            #     nonlinearity=lasagne.nonlinearities.softmax)
-            # print('Layer {0}: softmax ouput'.format(i))
-            # print('           N-neurons: {0}'.format(nkerns[i] ))
-            # print('           activation function: softmax')
-            # print('Output shape: {0}'.format(lasagne.layers.get_output_shape(network)))
-            # break
+
 
     print('Compiling model...')
 
@@ -246,23 +234,31 @@ def network(args, netargs, shape, x_train, y_train, x_val, y_val, x_test, y_test
 
     model.summary()
 
+    #TODO: add options to enable/disable certain callbacks
+
+    clr = CyclicLR(base_lr=args.lr, max_lr=args.max_learning_rate, step_size=args.stepsize)
+
     earlyStopping = EarlyStopping(monitor='val_loss', patience=args.patience, verbose=0, mode='auto')
 
     redLR = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.LRpatience, verbose=0, mode='auto',
                               epsilon=0.0001, cooldown=0, min_lr=0)
+
+    modelCheck = ModelCheckpoint('{0}/best_weights.hdf5'.format(outdir), monitor='val_loss', verbose=0, save_best_only=True,save_weights_only=True, mode='auto', period=0)
 
     print('Fitting model...')
 
     hist = model.fit(x_train, y_train,
                      epochs=args.n_epochs,
                      batch_size=args.batch_size,
-                     sample_weight=None,
+                     class_weight=netargs.class_weight,
                      validation_data=(x_val, y_val),
                      shuffle=True,
                      verbose=1,
-                     callbacks=[earlyStopping, redLR])
+                     callbacks=[clr, earlyStopping, redLR, modelCheck])
 
     print('Evaluating model...')
+
+    model.load_weights('{0}/best_weights.hdf5'.format(outdir))
 
     eval_results = model.evaluate(x_test, y_test,
                                   sample_weight=None,
@@ -442,6 +438,7 @@ def main(args):
     # convert args to correct format for network
     netargs = network_args(args)
 
+
     x_train, y_train, x_val, y_val, x_test, y_test = load_data(args, netargs)
 
     if not os.path.exists('{0}/SNR{1}'.format(args.outdir,args.SNR)):
@@ -454,15 +451,24 @@ def main(args):
 
     print('Results will be saved at: {0}/SNR{1}/run{2}'.format(args.outdir,args.SNR,Nrun))
 
-    shape = x_train.shape[1:]
+    with open('{0}/SNR{1}/run{2}/args.pkl'.format(args.outdir, args.SNR,Nrun), "wb") as wfp:
+        pickle.dump(args, wfp)
 
-    model, hist, eval_results, preds = network(args, netargs, shape,
+    shape = x_train.shape[1:]
+    out = '{0}/SNR{1}/run{2}'.format(args.outdir, args.SNR,Nrun)
+
+    model, hist, eval_results, preds = network(args, netargs, shape, out,
                                                x_train, y_train, x_val, y_val, x_test, y_test)
 
+    print('{0}: {1}'.format(model.metrics_names, eval_results))
 
-    model.save('{0}/SNR{1}/run{2}/nn_model.hdf'.format(args.outdir,args.SNR,Nrun))
+    #shutil.copy('./runCNN.sh', '{0}/SNR{1}/run{2}'.format(args.outdir, args.SNR,Nrun))
+
+    model.save('{0}/SNR{1}/run{2}/nn_model.hdf5'.format(args.outdir,args.SNR,Nrun))
+    np.save('{0}/SNR{1}/run{2}/targets.npy'.format(args.outdir,args.SNR,Nrun),y_test)
     np.save('{0}/SNR{1}/run{2}/preds.npy'.format(args.outdir,args.SNR,Nrun), preds)
     np.save('{0}/SNR{1}/run{2}/history.npy'.format(args.outdir,args.SNR,Nrun), hist.history)
+    np.save('{0}/SNR{1}/run{2}/test_results.pny'.format(args.outdir,args.SNR,Nrun),eval_results)
 
 
 if __name__ == '__main__':
