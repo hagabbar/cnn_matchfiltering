@@ -4,6 +4,7 @@ import pickle
 from gwpy.table import EventTable
 import numpy as np
 from scipy import integrate, interpolate
+import random
 
 import matplotlib
 matplotlib.use('Agg')
@@ -41,9 +42,10 @@ def parser():
     parser.add_argument('-r', '--res', type=str, default=None, help='path to file with results from CNN')
     parser.add_argument('-n', '--name', type=str, default=None, help='name for ROC plot or data')
     parser.add_argument('-I', '--detectors', type=str, nargs='+', default=['H1'], help='the detectors to use')
-    parser.add_argument('-b', '--basename', type=str, default='test', help='output file path and basename')
+    parser.add_argument('-b', '--basename', type=str, default='test', help='output file path and basename.')
     parser.add_argument('-z', '--seed', type=int, default=1, help='the random seed')
     parser.add_argument('-w', '--wave-bank', type=bool, default=False, help='waveforms already generated? (e.g. True/False')
+    parser.add_argument('-wb', '--w-basename', type=str, default='test', help='location of waveform .pkl files')
 
     return parser.parse_args()
 
@@ -121,10 +123,11 @@ def tukey(M, alpha=0.5, sym=True):
 
     return _truncate(w, needs_trunc)
 
-def inner(a, b, T_obs, fs, psd):
+def inner_alt(a, b, T_obs, fs, psd):
     """
     Computes the noise weighted inner product in the frequency domain
-    Follows Babak et al Eq. 2
+    Follows Babak et al Eq. 2 where one product is whitened and 
+    the other is unwhitned.
     """
     N = T_obs * fs
     df = 1.0 / T_obs
@@ -136,7 +139,26 @@ def inner(a, b, T_obs, fs, psd):
 
     af = np.fft.rfft(a * win) * dt
     bf = np.fft.rfft(b * win) * dt
-    temp = 4.0 * np.real(np.sum((np.conj(af) * bf) / psd)) * df
+    temp = 4.0 * np.real(np.sum((np.conj(af) * bf) / np.sqrt(psd))) * df
+    return temp
+
+def inner(a, b, T_obs, fs, psd):
+    """
+    Computes the noise weighted inner product in the frequency domain
+    Follows Babak et al Eq. 2 assuming both products are unwhitened.
+    """
+    N = T_obs * fs
+    df = 1.0 / T_obs
+    dt = 1.0 / fs
+
+    win = tukey(N, alpha=1.0 / 2.0)
+    idx = np.argwhere(psd == 0.0)
+    psd[idx] = 1e300
+
+    af = np.fft.rfft(a) * dt # multiply a by win
+    bf = np.fft.rfft(b) * dt # multiply b by win
+
+    temp = 4.0 * np.real(np.sum((np.conj(af) * bf) / psd)) * df # was originally complex conjugate of af
     return temp
 
 def meas_snr(data, template_p, template_c, Tobs, fs, psd):
@@ -153,34 +175,49 @@ def meas_snr(data, template_p, template_c, Tobs, fs, psd):
 
     return np.sqrt((a * a + b * b) / c)
 
-def whiten_data(data, duration, sample_rate, psd):
+def whiten_data(data,duration,sample_rate,psd):
     """
     Takes an input timeseries and whitens it according to a psd
     """
 
-    data_length = duration * sample_rate
-    dt = 1 / sample_rate
-
     # FT the input timeseries
-    #win = tukey(data_length,alpha=0.1)
+    #win = tukey(duration*sample_rate,alpha=1.0/8.0)
     xf = np.fft.rfft(data)
 
-    # The factor of sqrt(2 * psd.deltaF) comes from the value of 'norm' on
-    # line 1362 of AverageSpectrum.c.
-    idx = np.argwhere(psd.data.data==0.0)
-    psd.data.data[idx] = 1e300
-    xf /= (np.sqrt(psd.data.data * dt/ (2 * psd.deltaF)))
+    # deal with undefined PDS bins and normalise
+    idx = np.argwhere(psd==0.0)
+    psd[idx] = 1e300
+    xf /= (np.sqrt(0.5*psd*sample_rate))
 
     # Detrend the data: no DC component.
     xf[0] = 0.0
 
     # Return to time domain.
-    x = np.fft.irfft(xf)*dt
+    x = np.fft.irfft(xf)
 
     # Done.
-    return x 
+    return x
 
-def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,basename,f_low=12.0,wave_bank=False):
+
+def whiten_data_losc(data, psd, fs):
+    """
+    Whitens the data
+    Based on the LOSC tutorial code
+    """    
+
+    Nt = len(data)
+    dt = 1.0/fs
+    idx = np.argwhere(psd==0.0)
+    psd[idx] = 1e300
+
+    # whitening: transform to freq domain, divide by asd, then transform back, 
+    # taking care to get normalization right.
+    hf = np.fft.rfft(data)
+    white_hf = hf / (np.sqrt(psd /dt/2.))
+    white_ht = np.fft.irfft(white_hf, n=Nt)
+    return white_ht 
+
+def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,wpsds,basename,w_basename,f_low=12.0,wave_bank=False):
 
     # define input parameters
     N = T_obs * fs  # the total number of time samples
@@ -199,7 +236,7 @@ def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,basename,f_low=12.0,wave_bank=Fa
                hp,hc = make_waveforms(w,dt,dist,fs,approximant,N,ndet,dets,psds,f_low)
                hp_bank = {idx:hp}
                hc_bank = {idx:hc}
-           #if idx == 25:
+           #if idx == 10:
            #    break
            else:
                hp_new,hc_new = make_waveforms(w,dt,dist,fs,approximant,N,ndet,dets,psds,f_low)
@@ -220,36 +257,68 @@ def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,basename,f_low=12.0,wave_bank=Fa
     # load waveforms if already made
     else:
         # load hplus and hcross pickle file
-        pickle_hp = open("%shp.pkl" % basename,"rb")
+        pickle_hp = open("%shp.pkl" % w_basename,"rb")
         hp = pickle.load(pickle_hp)
-        pickle_hc = open("%shc.pkl" % basename,"rb")
+        pickle_hc = open("%shc.pkl" % w_basename,"rb")
         hc = pickle.load(pickle_hc)
 
     # loop over test signals
     # not setup to do multi detector network yet
-    for det,psd in zip(dets,psds):
+    for det,psd,wpsd in zip(dets,psds,wpsds):
         sig_match_rho = []
+        hp_hc_wvidx = []
+        chi_rho = []
+        noise = sig_data[0][sig_data[1]==0]
+        signal = sig_data[0][sig_data[1]==1]
+
+        chi_bool = True
+        if chi_bool == True:
+            #psd_wht = gen_psd(fs, 1, op='AdvDesign', det='H1')
+            count = 0
+            for idx in xrange(sig_data[0].shape[0]):
+                if sig_data[1][idx] == 0:
+                    # whitened first template
+                    h_idx = random.choice(hp.keys())
+                    #hp_1_wht = whiten_data(hp[h_idx][-5*N:], T_obs, fs, psd_wht.data.data)
+                    #hc_1_wht = whiten_data(hc[h_idx][-5*N:], T_obs, fs, psd_wht.data.data)
+                    hp_1_wht = hp[h_idx]
+                    hc_1_wht = hc[h_idx]
+
+                    # calculate chi distribution. For testing purposes only!
+                    chi_rho.append(meas_snr(sig_data[0][idx][0], hp_1_wht, hc_1_wht, T_obs, fs, wpsd))
+                    count+=1
+                    print '{}: Chi Rho for signal {} = {}'.format(time.asctime(),idx,chi_rho[-1])
+
+            # save list of chi rho for test purposes only
+            pickle_out = open("%schirho_values.pickle" % basename, "wb")
+            pickle.dump(chi_rho, pickle_out)
+            pickle_out.close()
+            
+        # this loop defines how many signals you are looping over
+        #psd_wht = gen_psd(fs, 5, op='AdvDesign', det='H1')
+        #for i in xrange(sig_data[0].shape[0]):
         for i in xrange(sig_data[0].shape[0]):
             rho = -np.inf
+
             for j, M in enumerate(hp):
-                # whiten signal
-                #hp_new = whiten_data(hp[j], T_obs, fs, psd)
-                #hc_new = whiten_data(hc[j], T_obs, fs, psd)
-
-                # normalize signal
-
-                #print '{}: checking template {} for signal {}'.format(time.asctime(),j,i) 
 
                 # compute the max(SNR) of this template
-                max_rho = meas_snr(sig_data[0][i],hp[j],hc[j],T_obs,fs,psd.data.data)            
+                max_rho = max(snr_ts(sig_data[0][i],hp[j],hc[j],T_obs,fs,wpsd)[0])
 
                 # check if max(SNR) greater than rho
                 if max_rho > rho:
                     rho = max_rho
-            print '{}: Current max(rho) for signal {} = {}'.format(time.asctime(),i,rho)
-            sig_match_rho.append(rho)    
-    
-    return np.array(sig_match_rho)
+                    #hphcidx = j
+                    #hphcidx = [hp_new,hc_new]
+            print '{}: Max(rho) for signal {} = {}'.format(time.asctime(),i,rho)
+            
+            # store max snr and index of hp/hc waveforms
+            sig_match_rho.append(rho) 
+            #hp_hc_wvidx.append(hphcidx)
+
+
+
+    return np.array(sig_match_rho), np.array(chi_rho)
 
 def _len_guards(M):
     """Handle small or incorrect window lengths"""
@@ -299,15 +368,15 @@ def snr_ts(data, template_p, template_c, Tobs, fs, psd):
     dt = 1.0 / fs
 
     temp = template_p + template_c * 1.j
-    dwindow = tukey(temp.size, alpha=1.0 / 16.0)
+    dwindow = tukey(temp.size, alpha=1.0 / 8.0)
     # dwindow = np.ones(temp.size)
 
     idx = np.argwhere(psd == 0.0)
     psd[idx] = 1e300
 
     # Take the Fourier Transform (FFT) of the data and the template (with dwindow)
-    data_fft = np.fft.fft(data * dwindow) * dt
-    template_fft = np.fft.fft(temp * dwindow ) * dt
+    data_fft = np.fft.fft(data) * dt # could add dwindow back in
+    template_fft = np.fft.fft(temp) * dt # could add dwindow back in
     freqs = np.fft.fftfreq(N, dt)
     oldfreqs = df * np.arange(N // 2 + 1)
 
@@ -322,7 +391,7 @@ def snr_ts(data, template_p, template_c, Tobs, fs, psd):
     # Taking the Inverse Fourier Transform (IFFT) of the filter output puts it back in the time domain,
     # so the result will be plotted as a function of time off-set between the template and the data:
     optimal = data_fft * template_fft.conjugate() / intpsd
-    optimal_time = 2 * np.fft.ifft(optimal) * fs
+    optimal_time = 2 * np.fft.ifft(optimal) * fs  #(4)  factor of 4 is just randomly thrown in there
 
     # -- Normalize the matched filter output:
     # Normalize the matched filter output so that we expect a value of 1 at times of just noise.
@@ -369,19 +438,24 @@ def make_waveforms(template,dt,dist,fs,approximant,N,ndet,dets,psds,f_low=12.0):
                     f_low,f_low,
                     lal.CreateDict(),
                     approximant)
-        flag = True if hp.data.length>N else False
+        flag = True if hp.data.length>3*N else False
         f_low -= 1       # decrease by 1 Hz each time
 
 
 
-    #for det,psd in zip(dets,psds):
-    #    hp = whiten_data(hp.data.data[-N:], psd.data.data, fs)
-    #    hc = whiten_data(hc.data.data[-N:], psd.data.data, fs)
+    hp = hp.data.data
+    hc = hc.data.data
 
-    hp = hp.data.data[-N:]
-    hc = hc.data.data[-N:]
+    # make new empty waveform with zeros that is 2s long and place inside it
+    hp_pad = np.lib.pad(hp, (0,2*N), 'constant')
+    hc_pad = np.lib.pad(hc, (0,2*N), 'constant')
 
-    return hp,hc
+    # whiten signal
+    psd_wht = gen_psd(fs, 5, op='AdvDesign', det='H1')    
+    hp_new = whiten_data(hp_pad[-5*N:], 5, fs, psd_wht.data.data)[-3*N:-2*N]
+    hc_new = whiten_data(hc_pad[-5*N:], 5, fs, psd_wht.data.data)[-3*N:-2*N]
+
+    return hp_new,hc_new
 
 def gen_psd(fs, T_obs, op='AdvDesign', det='H1'):
     """
@@ -418,8 +492,9 @@ def gen_psd(fs, T_obs, op='AdvDesign', det='H1'):
 
 def load_data(initial_dataset):
     # get core name of dataset
-    name = initial_dataset.split('_0')[0]
-    print('Using data for: {0}'.format(name))  
+    #name1 = initial_dataset.split('_0')[0]
+    #name2 = initial_dataset.split('_0')[1]
+    print('Using data for: {0}'.format(initial_dataset))  
      
     #load in dataset 0
     with open(initial_dataset, 'rb') as rfp:
@@ -457,12 +532,18 @@ def main():
     format='ligolw.sngl_inspiral', columns=['mass1','mass2','eta','mchirp']))
 
     # loop over stuff
-    output = looper(data,tmp_bank,Tobs,fs,dets,psds,args.basename,args.cutoff_freq,args.wave_bank)
+    output,chi_test = looper(data,tmp_bank,Tobs,fs,dets,psds,wpsds,args.basename,args.w_basename,args.cutoff_freq,args.wave_bank)
+    chi_test = [chi_test,data[1]]
     output = [output,data[1]]
 
     # save list of rho for test signals and test noise
     pickle_out = open("%srho_values.pickle" % args.basename, "wb")
     pickle.dump(output, pickle_out)
+    pickle_out.close()
+
+    # save list of chi rho for test purposes only
+    pickle_out = open("%schirho_values.pickle" % args.basename, "wb")
+    pickle.dump(chi_test, pickle_out)
     pickle_out.close()
 
 if __name__ == "__main__":
