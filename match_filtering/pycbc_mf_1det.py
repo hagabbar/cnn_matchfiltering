@@ -142,6 +142,25 @@ def inner_alt(a, b, T_obs, fs, psd):
     temp = 4.0 * np.real(np.sum((np.conj(af) * bf) / np.sqrt(psd))) * df
     return temp
 
+def inner_FD(a, b, T_obs, fs, psd):
+    """
+    Computes the noise weighted inner product in the frequency domain
+    Follows Babak et al Eq. 2 assuming both products are unwhitened.
+    """
+    N = T_obs * fs
+    df = 1.0 / T_obs
+    dt = 1.0 / fs
+
+    win = tukey(N, alpha=1.0 / 8.0)
+    idx = np.argwhere(psd == 0.0)
+    psd[idx] = 1e300
+
+    af = a * dt
+    bf = b * dt # originally multiplied dt by np.fft.rfft(b * win)
+
+    temp = 4.0 * np.real(np.sum((np.conj(af) * bf) / psd)) * df # was originally complex conjugate of af
+    return temp
+
 def inner(a, b, T_obs, fs, psd):
     """
     Computes the noise weighted inner product in the frequency domain
@@ -151,12 +170,12 @@ def inner(a, b, T_obs, fs, psd):
     df = 1.0 / T_obs
     dt = 1.0 / fs
 
-    win = tukey(N, alpha=1.0 / 2.0)
+    win = tukey(N, alpha=1.0 / 8.0)
     idx = np.argwhere(psd == 0.0)
     psd[idx] = 1e300
 
-    af = np.fft.rfft(a) * dt # multiply a by win
-    bf = np.fft.rfft(b) * dt # multiply b by win
+    af = np.fft.rfft(a * win) * dt
+    bf = b * dt # originally multiplied dt by np.fft.rfft(b * win)
 
     temp = 4.0 * np.real(np.sum((np.conj(af) * bf) / psd)) * df # was originally complex conjugate of af
     return temp
@@ -168,8 +187,8 @@ def meas_snr(data, template_p, template_c, Tobs, fs, psd):
     """
 
     a = inner(data, template_p, Tobs, fs, psd)
-    b = inner(data, template_c, Tobs, fs, psd)
-    c = inner(template_p, template_p, Tobs, fs, psd)
+    b = inner(data, template_c * 1.j, Tobs, fs, psd)
+    c = inner_FD(template_p, template_p, Tobs, fs, psd)
     #print data, whiten_data(data,psd,fs)
     #sys.exit()
 
@@ -182,7 +201,7 @@ def whiten_data(data,duration,sample_rate,psd):
 
     # FT the input timeseries
     #win = tukey(duration*sample_rate,alpha=1.0/8.0)
-    xf = np.fft.rfft(data)
+    xf = data.real #np.fft.rfft(data)
 
     # deal with undefined PDS bins and normalise
     idx = np.argwhere(psd==0.0)
@@ -193,11 +212,10 @@ def whiten_data(data,duration,sample_rate,psd):
     xf[0] = 0.0
 
     # Return to time domain.
-    x = np.fft.irfft(xf)
+    #x = np.fft.irfft(xf)
 
     # Done.
-    return x
-
+    return xf
 
 def whiten_data_losc(data, psd, fs):
     """
@@ -233,15 +251,17 @@ def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,wpsds,basename,w_basename,f_low=
         # loop over template bank params
         for idx,w in enumerate(tmp_bank):
            if idx == 0:
-               hp,hc = make_waveforms(w,dt,dist,fs,approximant,N,ndet,dets,psds,f_low)
+               hp,hc,fmin = make_waveforms(w,dt,dist,fs,approximant,N,ndet,dets,psds,T_obs,f_low)
                hp_bank = {idx:hp}
                hc_bank = {idx:hc}
+               fmin_bank = {idx:fmin}
            #if idx == 10:
            #    break
            else:
-               hp_new,hc_new = make_waveforms(w,dt,dist,fs,approximant,N,ndet,dets,psds,f_low)
+               hp_new,hc_new,fmin_new = make_waveforms(w,dt,dist,fs,approximant,N,ndet,dets,psds,T_obs,f_low)
                hp_bank.update({idx:hp_new})
                hc_bank.update({idx:hc_new})
+               fmin_bank.update({idx:fmin_new})
 
         # dump contents of hp and hc banks to pickle file
         pickle_hp = open("%shp.pkl" % basename,"wb")
@@ -250,6 +270,9 @@ def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,wpsds,basename,w_basename,f_low=
         pickle_hc = open("%shc.pkl" % basename,"wb")
         pickle.dump(hc_bank, pickle_hc)
         pickle_hc.close()
+        pickle_fmin = open("%sfmin.pkl" % basename,"wb")
+        pickle.dump(fmin_bank, pickle_fmin)
+        pickle_fmin.close()
 
         hp = hp_bank
         hc = hc_bank
@@ -261,9 +284,13 @@ def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,wpsds,basename,w_basename,f_low=
         hp = pickle.load(pickle_hp)
         pickle_hc = open("%shc.pkl" % w_basename,"rb")
         hc = pickle.load(pickle_hc)
+        pickle_fmin = open("%sfmin.pkl" % w_basename,"rb")
+        fmin_bank = pickle.load(pickle_fmin)
 
     # loop over test signals
     # not setup to do multi detector network yet
+    # If you're reading this code, I'm sorry but ...
+    # welcome to the 7th circle of hell.
     for det,psd,wpsd in zip(dets,psds,wpsds):
         sig_match_rho = []
         hp_hc_wvidx = []
@@ -279,17 +306,17 @@ def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,wpsds,basename,w_basename,f_low=
                 if sig_data[1][idx] == 0:
                     # whitened first template
                     h_idx = random.choice(hp.keys())
-                    #hp_1_wht = whiten_data(hp[h_idx][-5*N:], T_obs, fs, psd_wht.data.data)
-                    #hc_1_wht = whiten_data(hc[h_idx][-5*N:], T_obs, fs, psd_wht.data.data)
-                    hp_1_wht = hp[h_idx]
-                    hc_1_wht = hc[h_idx]
+                    #hp_1_wht = chris_whiten_data(hp[h_idx], T_obs, fs, psd.data.data, flag='fd')
+                    #hc_1_wht = chris_whiten_data(hc[h_idx], T_obs, fs, psd.data.data, flag='fd')
 
                     # calculate chi distribution. For testing purposes only!
-                    chi_rho.append(meas_snr(sig_data[0][idx][0], hp_1_wht, hc_1_wht, T_obs, fs, wpsd))
+                    #chi_rho.append(meas_snr(sig_data[0][idx][0], hp_1_wht, hc_1_wht, T_obs, fs, wpsd))
+                    chi_rho.append(chris_snr_ts(sig_data[0][idx],hp[h_idx],hc[h_idx],T_obs,fs,wpsd,fmin_bank[h_idx],flag='fd')[0][int(N/2)])
                     count+=1
                     print '{}: Chi Rho for signal {} = {}'.format(time.asctime(),idx,chi_rho[-1])
 
             # save list of chi rho for test purposes only
+            print np.mean(chi_rho), np.std(chi_rho)
             pickle_out = open("%schirho_values.pickle" % basename, "wb")
             pickle.dump(chi_rho, pickle_out)
             pickle_out.close()
@@ -297,24 +324,26 @@ def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,wpsds,basename,w_basename,f_low=
         # this loop defines how many signals you are looping over
         #psd_wht = gen_psd(fs, 5, op='AdvDesign', det='H1')
         #for i in xrange(sig_data[0].shape[0]):
-        for i in xrange(sig_data[0].shape[0]):
+        for i in range(1000):
             rho = -np.inf
 
             for j, M in enumerate(hp):
-
                 # compute the max(SNR) of this template
-                max_rho = max(snr_ts(sig_data[0][i],hp[j],hc[j],T_obs,fs,wpsd)[0])
-
+                #hp_1_wht = chris_whiten_data(hp[j], T_obs, fs, psd.data.data, flag='fd')
+                #hc_1_wht = chris_whiten_data(hc[j], T_obs, fs, psd.data.data, flag='fd')
+                #max_rho = max(snr_ts(sig_data[0][i],hp_1_wht,hc_1_wht,T_obs,fs,wpsd)[0])
+                max_rho = max(chris_snr_ts(sig_data[0][i],hp[j],hc[j],T_obs,fs,wpsd,fmin_bank[j],flag='fd')[0][int(fs*1.245):int(fs*1.455)]) #had [0] here
                 # check if max(SNR) greater than rho
                 if max_rho > rho:
                     rho = max_rho
                     #hphcidx = j
                     #hphcidx = [hp_new,hc_new]
-            print '{}: Max(rho) for signal {} = {}'.format(time.asctime(),i,rho)
+            print '{}: Max(rho) for signal {} type {} = {}'.format(time.asctime(),i,sig_data[1][i],rho)
             
             # store max snr and index of hp/hc waveforms
-            sig_match_rho.append(rho) 
-            #hp_hc_wvidx.append(hphcidx)
+            sig_match_rho.append(rho)
+        print np.mean(sig_match_rho), np.std(sig_match_rho)
+        #hp_hc_wvidx.append(hphcidx)
 
 
 
@@ -357,26 +386,106 @@ def get_snr(data,T_obs,fs,psd):
     return np.sqrt(SNRsq)
 
 
+def chris_whiten_data(data,duration,sample_rate,psd,flag='td'):
+    """
+    Takes an input timeseries and whitens it according to a psd
+    """
+
+    if flag=='td':
+        # FT the input timeseries - window first
+        win = tukey(duration*sample_rate,alpha=1.0/8.0)
+        xf = np.fft.rfft(win*data)
+    else:
+        xf = data
+
+    # deal with undefined PDS bins and normalise
+    #idx = np.argwhere(psd>0.0)
+    #invpsd = np.zeros(psd.size)
+    #invpsd[idx] = 1.0/psd[idx]
+    #xf *= np.sqrt(2.0*invpsd/sample_rate)
+
+    # deal with undefined PDS bins and normalise
+    idx = np.argwhere(psd==0.0)
+    psd[idx] = 1e300
+    xf /= (np.sqrt(0.5*psd*sample_rate))
+
+    # Detrend the data: no DC component.
+    xf[0] = 0.0
+
+    if flag=='td':
+        # Return to time domain.
+        x = np.fft.irfft(xf)
+        return x
+    else:
+        return xf
+
+def chris_snr_ts(data,template_p,template_c,Tobs,fs,psd,fmin,flag='td'):
+    """
+    Computes the SNR timeseries given a timeseries and template
+    """
+    N = Tobs*fs
+    df = 1.0/Tobs
+    dt = 1.0/fs
+    fidx = int(fmin/df)
+    win = tukey(N,alpha=1.0/8.0)
+
+    idx = np.argwhere(psd==0.0)
+    psd[idx] = 1e300
+    freqs = np.fft.fftfreq(N,dt)
+    oldfreqs = df*np.arange(N//2 + 1)
+    intpsd = np.interp(np.abs(freqs),oldfreqs,psd)
+    idx = np.argwhere(intpsd==0.0)
+    intpsd[idx] = 1e300
+    idx = np.argwhere(np.isnan(intpsd))
+    intpsd[idx] = 1e300
+
+    if flag=='td':
+        # make complex template
+        temp = template_p + template_c*1.j
+        ftemp = np.fft.fft(temp*win)*dt
+    else:
+        # same as fft(temp_p) + i*fft(temp_c)
+        temp_p = np.hstack([template_p,np.conj((template_p[::-1])[1:-1])])
+        temp_c = np.hstack([template_c,np.conj((template_c[::-1])[1:-1])])
+        ftemp = temp_p + 1.j*temp_c
+        # fill negative frequencies - only set up to do N=even
+        #rev = temp[::-1]
+        #ftemp = np.hstack([temp,np.conj(rev[1:-1])])
+    ftemp[:fidx] = 0.0
+    ftemp[-fidx:] = 0.0
+
+    # FFT data
+    fdata = np.fft.fft(data*win)*dt
+
+    z = 4.0*np.fft.ifft(fdata*np.conj(ftemp)/intpsd)*df*N
+    s = 4.0*np.sum(np.abs(ftemp, dtype='float128')**2/intpsd)*df
+    return np.abs(z)/np.sqrt(s)
+
 def snr_ts(data, template_p, template_c, Tobs, fs, psd):
     """
     Computes the SNR for each time step
     Based on the LOSC tutorial code
     """
 
+    Nyq = fs / 2.
     N = Tobs * fs
+    N_nyq = Tobs * Nyq
     df = 1.0 / Tobs
     dt = 1.0 / fs
+    dt_nyq = 1.0 / Nyq
 
-    temp = template_p + template_c * 1.j
-    dwindow = tukey(temp.size, alpha=1.0 / 8.0)
+    temp = template_p + template_c * 1.j # didn't have dt before
+    dwindow = tukey(N, alpha=1.0 / 8.0)
     # dwindow = np.ones(temp.size)
 
     idx = np.argwhere(psd == 0.0)
     psd[idx] = 1e300
 
     # Take the Fourier Transform (FFT) of the data and the template (with dwindow)
-    data_fft = np.fft.fft(data) * dt # could add dwindow back in
-    template_fft = np.fft.fft(temp) * dt # could add dwindow back in
+    data_fft = np.fft.fft(data * dwindow) * dt
+    #template_fft = np.fft.fft(temp * dwindow) * dt
+
+    # use nyquist for fs
     freqs = np.fft.fftfreq(N, dt)
     oldfreqs = df * np.arange(N // 2 + 1)
 
@@ -390,26 +499,52 @@ def snr_ts(data, template_p, template_c, Tobs, fs, psd):
     # Multiply the Fourier Space template and data, and divide by the noise power in each frequency bin.
     # Taking the Inverse Fourier Transform (IFFT) of the filter output puts it back in the time domain,
     # so the result will be plotted as a function of time off-set between the template and the data:
-    optimal = data_fft * template_fft.conjugate() / intpsd
-    optimal_time = 2 * np.fft.ifft(optimal) * fs  #(4)  factor of 4 is just randomly thrown in there
+    print temp.conjugate().shape
+    sys.exit()
+    print data_fft.shape, temp.conjugate().shape, intpsd.shape
+    sys.exit()
+    optimal = data_fft * temp.conjugate() / intpsd # used to be template_fft.conj()
+    optimal_time = 2 * np.fft.ifft(optimal) * fs
 
     # -- Normalize the matched filter output:
     # Normalize the matched filter output so that we expect a value of 1 at times of just noise.
     # Then, the peak of the matched filter output will tell us the signal-to-noise ratio (SNR) of the signal.
-    sigmasq = 1 * (template_fft * template_fft.conjugate() / intpsd).sum() * df
+    sigmasq = 1 * (temp * temp.conjugate() / intpsd).sum() * df # used to be template_fft.conj() and template_fft
     sigma = np.sqrt(np.abs(sigmasq))
     SNR_complex = optimal_time / sigma
 
     return abs(SNR_complex)
 
-def make_waveforms(template,dt,dist,fs,approximant,N,ndet,dets,psds,f_low=12.0):
+
+def get_fmin(mc,dt):
+    """
+    Compute the instantaneous frequency given a chirp mass (in Msun) and time till merger in seconds
+    """
+
+    # convert to SI c=G=1 units
+    mcsi = mc*lal.MSUN_SI*lal.G_SI/lal.C_SI**3
+    fmin = (1.0/(8.0*np.pi)) * ((0.2*dt)**(-3.0/8.0)) * (mcsi**(-5.0/8.0))
+    print '{}: signal enters segment at {} Hz'.format(time.asctime(),fmin)
+    return fmin
+
+
+def make_waveforms(template,dt,dist,fs,approximant,N,ndet,dets,psds,T_obs,f_low=12.0):
     """ make waveform"""
+
 
     # define variables
     template = list(template)
     m12 = [template[0],template[1]]
     eta = template[2]
     mc = template[3]
+    N = T_obs * fs      # the total number of time samples
+    dt = 1 / fs             # the sampling time (sec)
+    approximant = lalsimulation.IMRPhenomD
+    f_high = fs/2.0
+    df = 1.0/T_obs
+    f_low = df*int(get_fmin(mc,1.0)/df)
+    f_ref = f_low    
+    dist = 1e6*lal.PC_SI  # put it as 1 MPc
 
     # generate iota
     iota = np.arccos(-1.0 + 2.0*np.random.rand())
@@ -419,43 +554,58 @@ def make_waveforms(template,dt,dist,fs,approximant,N,ndet,dets,psds,f_low=12.0):
     psi = 2.0*np.pi*np.random.rand()
     print '{}: selected bbh polarisation = {}'.format(time.asctime(),psi)
 
-
     # print parameters
     print '{}: selected bbh mass 1 = {}'.format(time.asctime(),m12[0])
     print '{}: selected bbh mass 2 = {}'.format(time.asctime(),m12[1])
     print '{}: selected bbh eta = {}'.format(time.asctime(),eta)
 
-    # loop until we have a long enough waveform - slowly reduce flow is needed
-    flag = False
-    while not flag:
-        hp, hc = lalsimulation.SimInspiralChooseTDWaveform(
+    # make waveform
+    hp, hc = lalsimulation.SimInspiralChooseFDWaveform(
                     m12[0] * lal.MSUN_SI, m12[1] * lal.MSUN_SI,
                     0, 0, 0, 0, 0, 0,
                     dist,
-                    iota, 0, 0,
-                    0, 0,
-                    1 / fs,
-                    f_low,f_low,
+                    iota, 
+                    0, 0, 0, 0,
+                    df,
+                    f_low,f_high,
+                    f_ref,
                     lal.CreateDict(),
                     approximant)
-        flag = True if hp.data.length>3*N else False
-        f_low -= 1       # decrease by 1 Hz each time
 
+    # define variables
+    #template = list(template)
+    #m12 = [template[0],template[1]]
+    #eta = template[2]
+    #mc = template[3]
+    #Nyq = fs #/ 2. - 1
+    #f_low = get_fmin(mc,T_obs)
+
+
+    # loop until we have a long enough waveform - slowly reduce flow is needed
+    #flag = False
+    #while not flag:
+    #hp, hc = lalsimulation.SimInspiralChooseFDWaveform(
+    #            m12[0] * lal.MSUN_SI, m12[1] * lal.MSUN_SI,
+    #            0, 0, 0, 0, 0, 0,
+    #            dist,
+    #            iota, 0, 0,
+    #            0, 0,
+    #            T_obs,
+    #            f_low, Nyq, f_low,
+    #            lal.CreateDict(),
+    #            approximant)
+        #flag = True if hp.data.length>3*N else False
+        #f_low -= 1       # decrease by 1 Hz each time
 
 
     hp = hp.data.data
     hc = hc.data.data
+    for psd in psds:
+        hp_1_wht = chris_whiten_data(hp, T_obs, fs, psd.data.data, flag='fd')
+        hc_1_wht = chris_whiten_data(hc, T_obs, fs, psd.data.data, flag='fd')
 
-    # make new empty waveform with zeros that is 2s long and place inside it
-    hp_pad = np.lib.pad(hp, (0,2*N), 'constant')
-    hc_pad = np.lib.pad(hc, (0,2*N), 'constant')
 
-    # whiten signal
-    psd_wht = gen_psd(fs, 5, op='AdvDesign', det='H1')    
-    hp_new = whiten_data(hp_pad[-5*N:], 5, fs, psd_wht.data.data)[-3*N:-2*N]
-    hc_new = whiten_data(hc_pad[-5*N:], 5, fs, psd_wht.data.data)[-3*N:-2*N]
-
-    return hp_new,hc_new
+    return hp_1_wht,hc_1_wht,get_fmin(mc,1)
 
 def gen_psd(fs, T_obs, op='AdvDesign', det='H1'):
     """
