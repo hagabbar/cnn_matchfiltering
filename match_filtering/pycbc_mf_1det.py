@@ -17,6 +17,7 @@ import argparse
 import time
 from scipy.signal import filtfilt, butter
 from scipy.stats import norm, chi
+from scipy.optimize import brentq
 import os
 
 import sys
@@ -33,7 +34,7 @@ def parser():
 
     # arguments for reading in a data file
     parser.add_argument('-d', '--dataset', type=str, help='test set')
-    parser.add_argument('-c', '--cutoff_freq', default=12.0, type=float, help='cutoff frequency used to generate template bank')
+    parser.add_argument('-c', '--cutoff_freq', default=20.0, type=float, help='cutoff frequency used to generate template bank')
     parser.add_argument('-tb', '--temp-bank', type=str, help='template bank .xml file')
     parser.add_argument('-f', '--fsample', type=int, default=8192, help='the sampling frequency (Hz)')
     parser.add_argument('-T', '--Tobs', type=int, default=1, help='the observation duration (sec)')
@@ -49,79 +50,22 @@ def parser():
 
     return parser.parse_args()
 
-def tukey(M, alpha=0.5, sym=True):
-    r"""Return a Tukey window, also known as a tapered cosine window.
-    Parameters
-    ----------
-    M : int
-        Number of points in the output window. If zero or less, an empty
-        array is returned.
-    alpha : float, optional
-        Shape parameter of the Tukey window, representing the fraction of the
-        window inside the cosine tapered region.
-        If zero, the Tukey window is equivalent to a rectangular window.
-        If one, the Tukey window is equivalent to a Hann window.
-    sym : bool, optional
-        When True (default), generates a symmetric window, for use in filter
-        design.
-        When False, generates a periodic window, for use in spectral analysis.
-    Returns
-    -------
-    w : ndarray
-        The window, with the maximum value normalized to 1 (though the value 1
-        does not appear if `M` is even and `sym` is True).
-    References
-    ----------
-    .. [1] Harris, Fredric J. (Jan 1978). "On the use of Windows for Harmonic
-           Analysis with the Discrete Fourier Transform". Proceedings of the
-           IEEE 66 (1): 51-83. :doi:`10.1109/PROC.1978.10837`
-    .. [2] Wikipedia, "Window function",
-           http://en.wikipedia.org/wiki/Window_function#Tukey_window
-    Examples
-    --------
-    Plot the window and its frequency response:
-    >>> from scipy import signal
-    >>> from scipy.fftpack import fft, fftshift
-    >>> import matplotlib.pyplot as plt
-    >>> window = signal.tukey(51)
-    >>> plt.plot(window)
-    >>> plt.title("Tukey window")
-    >>> plt.ylabel("Amplitude")
-    >>> plt.xlabel("Sample")
-    >>> plt.ylim([0, 1.1])
-    >>> plt.figure()
-    >>> A = fft(window, 2048) / (len(window)/2.0)
-    >>> freq = np.linspace(-0.5, 0.5, len(A))
-    >>> response = 20 * np.log10(np.abs(fftshift(A / abs(A).max())))
-    >>> plt.plot(freq, response)
-    >>> plt.axis([-0.5, 0.5, -120, 0])
-    >>> plt.title("Frequency response of the Tukey window")
-    >>> plt.ylabel("Normalized magnitude [dB]")
-    >>> plt.xlabel("Normalized frequency [cycles per sample]")
+def tukey(M,alpha=0.5):
     """
-    if _len_guards(M):
-        return np.ones(M)
-
-    if alpha <= 0:
-        return np.ones(M, 'd')
-    elif alpha >= 1.0:
-        return hann(M, sym=sym)
-
-    M, needs_trunc = _extend(M, sym)
-
+    Tukey window code copied from scipy
+    """
     n = np.arange(0, M)
-    width = int(np.floor(alpha * (M - 1) / 2.0))
-    n1 = n[0:width + 1]
-    n2 = n[width + 1:M - width - 1]
-    n3 = n[M - width - 1:]
+    width = int(np.floor(alpha*(M-1)/2.0))
+    n1 = n[0:width+1]
+    n2 = n[width+1:M-width-1]
+    n3 = n[M-width-1:]
 
-    w1 = 0.5 * (1 + np.cos(np.pi * (-1 + 2.0 * n1 / alpha / (M - 1))))
+    w1 = 0.5 * (1 + np.cos(np.pi * (-1 + 2.0*n1/alpha/(M-1))))
     w2 = np.ones(n2.shape)
-    w3 = 0.5 * (1 + np.cos(np.pi * (-2.0 / alpha + 1 + 2.0 * n3 / alpha / (M - 1))))
-
+    w3 = 0.5 * (1 + np.cos(np.pi * (-2.0/alpha + 1 + 2.0*n3/alpha/(M-1))))
     w = np.concatenate((w1, w2, w3))
 
-    return _truncate(w, needs_trunc)
+    return np.array(w[:M])
 
 def inner_alt(a, b, T_obs, fs, psd):
     """
@@ -189,8 +133,6 @@ def meas_snr(data, template_p, template_c, Tobs, fs, psd):
     a = inner(data, template_p, Tobs, fs, psd)
     b = inner(data, template_c * 1.j, Tobs, fs, psd)
     c = inner_FD(template_p, template_p, Tobs, fs, psd)
-    #print data, whiten_data(data,psd,fs)
-    #sys.exit()
 
     return np.sqrt((a * a + b * b) / c)
 
@@ -235,7 +177,7 @@ def whiten_data_losc(data, psd, fs):
     white_ht = np.fft.irfft(white_hf, n=Nt)
     return white_ht 
 
-def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,wpsds,basename,w_basename,f_low=12.0,wave_bank=False):
+def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,wpsds,basename,w_basename,f_low=20.0,wave_bank=False):
 
     # define input parameters
     N = T_obs * fs  # the total number of time samples
@@ -298,7 +240,7 @@ def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,wpsds,basename,w_basename,f_low=
         noise = sig_data[0][sig_data[1]==0]
         signal = sig_data[0][sig_data[1]==1]
 
-        chi_bool = True
+        chi_bool = False
         if chi_bool == True:
             #psd_wht = gen_psd(fs, 1, op='AdvDesign', det='H1')
             count = 0
@@ -316,33 +258,38 @@ def looper(sig_data,tmp_bank,T_obs,fs,dets,psds,wpsds,basename,w_basename,f_low=
                     print '{}: Chi Rho for signal {} = {}'.format(time.asctime(),idx,chi_rho[-1])
 
             # save list of chi rho for test purposes only
-            print np.mean(chi_rho), np.std(chi_rho)
             pickle_out = open("%schirho_values.pickle" % basename, "wb")
             pickle.dump(chi_rho, pickle_out)
             pickle_out.close()
             
         # this loop defines how many signals you are looping over
         #psd_wht = gen_psd(fs, 5, op='AdvDesign', det='H1')
-        #for i in xrange(sig_data[0].shape[0]):
-        for i in range(1000):
+        for i in xrange(sig_data[0].shape[0]):
+        #for i in range(1000):
             rho = -np.inf
-
-            for j, M in enumerate(hp):
-                # compute the max(SNR) of this template
-                #hp_1_wht = chris_whiten_data(hp[j], T_obs, fs, psd.data.data, flag='fd')
-                #hc_1_wht = chris_whiten_data(hc[j], T_obs, fs, psd.data.data, flag='fd')
-                #max_rho = max(snr_ts(sig_data[0][i],hp_1_wht,hc_1_wht,T_obs,fs,wpsd)[0])
-                max_rho = max(chris_snr_ts(sig_data[0][i],hp[j],hc[j],T_obs,fs,wpsd,fmin_bank[j],flag='fd')[0][int(fs*1.245):int(fs*1.455)]) #had [0] here
-                # check if max(SNR) greater than rho
-                if max_rho > rho:
-                    rho = max_rho
-                    #hphcidx = j
-                    #hphcidx = [hp_new,hc_new]
-            print '{}: Max(rho) for signal {} type {} = {}'.format(time.asctime(),i,sig_data[1][i],rho)
-            
-            # store max snr and index of hp/hc waveforms
-            sig_match_rho.append(rho)
-        print np.mean(sig_match_rho), np.std(sig_match_rho)
+            if i == 2:
+                for j, M in enumerate(hp):
+                    if j ==2487:
+                    # compute the max(SNR) of this template
+                    #hp_0_wht = chris_whiten_data(hp[j], T_obs, fs, psd.data.data, flag='fd')
+                    #hc_1_wht = chris_whiten_data(hc[j], T_obs, fs, psd.data.data, flag='fd')
+                    #max_rho = max(snr_ts(sig_data[0][i],hp_1_wht,hc_1_wht,T_obs,fs,wpsd)[0])
+                        max_rho = max(chris_snr_ts(sig_data[0][i],hp[j],hc[j],T_obs,fs,wpsd,fmin_bank[j],flag='fd')[0]) #[int(fs*1.245):int(fs*1.455)]) #had [0] here
+                    # check if max(SNR) greater than rho
+                        if max_rho > rho:
+                            rho = max_rho
+                            hphcidx = j
+                        #hphcidx = [hp_new,hc_new]
+                    #if rho > 13:
+                    #    print fmin_bank[j]
+                    #    plt.plot(hp[j])
+                    #    plt.savefig('/home/hunter.gabbard/public_html/CBC/dl_match/test/hp.png')
+                    #    plt.close()
+                    #    sys.exit()
+                print '{}: Max(rho) for signal {} type {} = {}'.format(time.asctime(),i,sig_data[1][i],rho)
+                print '{}: Waveform idx for signal {} = {}'.format(time.asctime(),i,hphcidx)
+                # store max snr and index of hp/hc waveforms
+                sig_match_rho.append(rho)
         #hp_hc_wvidx.append(hphcidx)
 
 
@@ -442,7 +389,13 @@ def chris_snr_ts(data,template_p,template_c,Tobs,fs,psd,fmin,flag='td'):
     if flag=='td':
         # make complex template
         temp = template_p + template_c*1.j
-        ftemp = np.fft.fft(temp*win)*dt
+        ftemp = np.fft.fft(temp)*dt
+        
+        # debug
+        plt.plot(ftemp)
+        plt.savefig('/home/hunter.gabbard/public_html/CBC/dl_match/test/template66_td_sig1.png')
+        plt.close()
+        sys.exit()
     else:
         # same as fft(temp_p) + i*fft(temp_c)
         temp_p = np.hstack([template_p,np.conj((template_p[::-1])[1:-1])])
@@ -455,10 +408,15 @@ def chris_snr_ts(data,template_p,template_c,Tobs,fs,psd,fmin,flag='td'):
     ftemp[-fidx:] = 0.0
 
     # FFT data
+    #print np.var(data*win)
+    #plt.plot((data*win)[0])
+    #plt.savefig('/home/hunter.gabbard/public_html/CBC/dl_match/test/template2487_ts_sig2.png')
+    #plt.close()
+    #sys.exit()
     fdata = np.fft.fft(data*win)*dt
 
     z = 4.0*np.fft.ifft(fdata*np.conj(ftemp)/intpsd)*df*N
-    s = 4.0*np.sum(np.abs(ftemp, dtype='float128')**2/intpsd)*df
+    s = 4.0*np.sum(np.abs(ftemp)**2/intpsd)*df
     return np.abs(z)/np.sqrt(s)
 
 def snr_ts(data, template_p, template_c, Tobs, fs, psd):
@@ -499,10 +457,6 @@ def snr_ts(data, template_p, template_c, Tobs, fs, psd):
     # Multiply the Fourier Space template and data, and divide by the noise power in each frequency bin.
     # Taking the Inverse Fourier Transform (IFFT) of the filter output puts it back in the time domain,
     # so the result will be plotted as a function of time off-set between the template and the data:
-    print temp.conjugate().shape
-    sys.exit()
-    print data_fft.shape, temp.conjugate().shape, intpsd.shape
-    sys.exit()
     optimal = data_fft * temp.conjugate() / intpsd # used to be template_fft.conj()
     optimal_time = 2 * np.fft.ifft(optimal) * fs
 
@@ -516,15 +470,26 @@ def snr_ts(data, template_p, template_c, Tobs, fs, psd):
     return abs(SNR_complex)
 
 
-def get_fmin(mc,dt):
+def get_fmin(M,eta,dt):
     """
-    Compute the instantaneous frequency given a chirp mass (in Msun) and time till merger in seconds
+    Compute the instantaneous frequency given a time till merger
     """
+    M_SI = M*lal.MSUN_SI
 
-    # convert to SI c=G=1 units
-    mcsi = mc*lal.MSUN_SI*lal.G_SI/lal.C_SI**3
-    fmin = (1.0/(8.0*np.pi)) * ((0.2*dt)**(-3.0/8.0)) * (mcsi**(-5.0/8.0))
+    def dtchirp(f):
+        """
+        The chirp time to 2nd PN order
+        """
+        v = ((lal.G_SI/lal.C_SI**3)*M_SI*np.pi*f)**(1.0/3.0)
+        temp = (v**(-8.0) + ((743.0/252.0) + 11.0*eta/3.0)*v**(-6.0) -
+                (32*np.pi/5.0)*v**(-5.0) + ((3058673.0/508032.0) + 5429*eta/504.0 +
+                (617.0/72.0)*eta**2)*v**(-4.0))
+        return (5.0/(256.0*eta))*(lal.G_SI/lal.C_SI**3)*M_SI*temp - dt
+
+    # solve for the frequency between limits
+    fmin = brentq(dtchirp, 1.0, 2000.0, xtol=1e-6)
     print '{}: signal enters segment at {} Hz'.format(time.asctime(),fmin)
+
     return fmin
 
 
@@ -542,7 +507,7 @@ def make_waveforms(template,dt,dist,fs,approximant,N,ndet,dets,psds,T_obs,f_low=
     approximant = lalsimulation.IMRPhenomD
     f_high = fs/2.0
     df = 1.0/T_obs
-    f_low = df*int(get_fmin(mc,1.0)/df)
+    f_low = df*int(get_fmin(mc,eta,1.0)/df)
     f_ref = f_low    
     dist = 1e6*lal.PC_SI  # put it as 1 MPc
 
@@ -572,30 +537,6 @@ def make_waveforms(template,dt,dist,fs,approximant,N,ndet,dets,psds,T_obs,f_low=
                     lal.CreateDict(),
                     approximant)
 
-    # define variables
-    #template = list(template)
-    #m12 = [template[0],template[1]]
-    #eta = template[2]
-    #mc = template[3]
-    #Nyq = fs #/ 2. - 1
-    #f_low = get_fmin(mc,T_obs)
-
-
-    # loop until we have a long enough waveform - slowly reduce flow is needed
-    #flag = False
-    #while not flag:
-    #hp, hc = lalsimulation.SimInspiralChooseFDWaveform(
-    #            m12[0] * lal.MSUN_SI, m12[1] * lal.MSUN_SI,
-    #            0, 0, 0, 0, 0, 0,
-    #            dist,
-    #            iota, 0, 0,
-    #            0, 0,
-    #            T_obs,
-    #            f_low, Nyq, f_low,
-    #            lal.CreateDict(),
-    #            approximant)
-        #flag = True if hp.data.length>3*N else False
-        #f_low -= 1       # decrease by 1 Hz each time
 
 
     hp = hp.data.data
@@ -605,7 +546,7 @@ def make_waveforms(template,dt,dist,fs,approximant,N,ndet,dets,psds,T_obs,f_low=
         hc_1_wht = chris_whiten_data(hc, T_obs, fs, psd.data.data, flag='fd')
 
 
-    return hp_1_wht,hc_1_wht,get_fmin(mc,1)
+    return hp_1_wht,hc_1_wht,get_fmin(mc,eta,1)
 
 def gen_psd(fs, T_obs, op='AdvDesign', det='H1'):
     """
