@@ -541,7 +541,7 @@ def main():
     # loop over signals
     maxSNRts = np.zeros(Nsig)     # store maximised (over time) measured signal SNR
     print '{}: starting to generate data'.format(time.asctime())
-    for i in xrange(2500):
+    for i in xrange(Nsig):
     
         ###-CHANGE-TO-READ-IN-TEST-DATA-#############################################################
         # read in whitened time domain data 
@@ -589,7 +589,7 @@ def main():
     # seperate noise from signal
     noise = []
     signals = []
-    for idx, i in enumerate(maxSNRts[:2500]):
+    for idx, i in enumerate(maxSNRts):
         if data[1][idx] == 0:
             noise.append(i)
         if data[1][idx] == 1:
