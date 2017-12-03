@@ -1,5 +1,5 @@
 universe=vanilla
-executable=python chris_mf_template.py
+executable=./chris_mf_template.py
 arguments="--temp-bank $(tb) --dataset $(d) --basename $(b)"
 output=/dev/null
 error=target.$(Process).err
