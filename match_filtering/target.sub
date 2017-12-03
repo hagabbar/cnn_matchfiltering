@@ -1,0 +1,11 @@
+universe=vanilla
+executable=python chris_mf_template.py
+arguments="--temp-bank $(tb) --dataset $(d) --basename $(b)"
+output=/dev/null
+error=target.$(Process).err
+log=target.log
+accounting_group = ligo.dev.o2.detchar.explore.test
+RequestMemory=8000
+RequestCpus=4
+getenv=True
+queue 1

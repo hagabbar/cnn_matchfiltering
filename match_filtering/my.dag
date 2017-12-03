@@ -1,0 +1,60 @@
+JOB 0000000 target.sub
+VARS 0000000 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr1/ts_0" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR1_Hdet_astromass_1seed_ts_0.sav"
+
+JOB 1000000 target.sub
+VARS 1000000 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr1/ts_1" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR1_Hdet_astromass_1seed_ts_1.sav"
+
+JOB 0000001 target.sub
+VARS 0000001 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr2/ts_0" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR2_Hdet_astromass_1seed_ts_0.sav"
+
+JOB 1000001 target.sub
+VARS 1000001 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr2/ts_1" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR2_Hdet_astromass_1seed_ts_1.sav"
+
+JOB 0000002 target.sub
+VARS 0000002 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr3/ts_0" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR3_Hdet_astromass_1seed_ts_0.sav"
+
+JOB 1000002 target.sub
+VARS 1000002 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr3/ts_1" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR3_Hdet_astromass_1seed_ts_1.sav"
+
+JOB 0000003 target.sub
+VARS 0000003 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr4/ts_0" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR4_Hdet_astromass_1seed_ts_0.sav"
+
+JOB 1000003 target.sub
+VARS 1000003 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr4/ts_1" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR4_Hdet_astromass_1seed_ts_1.sav"
+
+JOB 0000004 target.sub
+VARS 0000004 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr5/ts_0" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR5_Hdet_astromass_1seed_ts_0.sav"
+
+JOB 1000004 target.sub
+VARS 1000004 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr5/ts_1" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR5_Hdet_astromass_1seed_ts_1.sav"
+
+JOB 0000005 target.sub
+VARS 0000005 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr6/ts_0" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR6_Hdet_astromass_1seed_ts_0.sav"
+
+JOB 1000005 target.sub
+VARS 1000005 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr6/ts_1" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR6_Hdet_astromass_1seed_ts_1.sav"
+
+JOB 0000006 target.sub
+VARS 0000006 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr7/ts_0" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR7_Hdet_astromass_1seed_ts_0.sav"
+
+JOB 1000006 target.sub
+VARS 1000006 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr7/ts_1" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR7_Hdet_astromass_1seed_ts_1.sav"
+
+JOB 0000007 target.sub
+VARS 0000007 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr8/ts_0" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR8_Hdet_astromass_1seed_ts_0.sav"
+
+JOB 1000007 target.sub
+VARS 1000007 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr8/ts_1" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR8_Hdet_astromass_1seed_ts_1.sav"
+
+JOB 0000008 target.sub
+VARS 0000008 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr9/ts_0" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR9_Hdet_astromass_1seed_ts_0.sav"
+
+JOB 1000008 target.sub
+VARS 1000008 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr9/ts_1" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR9_Hdet_astromass_1seed_ts_1.sav"
+
+JOB 0000009 target.sub
+VARS 0000009 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr10/ts_0" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR10_Hdet_astromass_1seed_ts_0.sav"
+
+JOB 1000009 target.sub
+VARS 1000009 b="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/results/full_bank_snr10/ts_1" tb="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/match_filtering/f_low20_threePointFivePN-f_upper8192NonSpin.xml" d="/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR10_Hdet_astromass_1seed_ts_1.sav"
+
