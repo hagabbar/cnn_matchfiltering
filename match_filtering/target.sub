@@ -1,11 +1,11 @@
 universe=vanilla
 executable=./chris_mf_template.py
-arguments="--temp-bank $(tb) --dataset $(d) --basename $(b)"
+arguments="--temp-bank $(tb) --dataset $(d) --basename $(b) --Nsig $(Nsig) --start-sig $(st)"
 output=/dev/null
 error=target.$(Process).err
 log=target.log
-accounting_group = ligo.dev.o2.detchar.explore.test
-RequestMemory=8000
+accounting_group = ligo.dev.o2.cbc.explore.test
+RequestMemory=4000
 RequestCpus=4
 getenv=True
 queue 1
