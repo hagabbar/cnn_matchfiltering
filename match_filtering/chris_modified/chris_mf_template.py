@@ -1,3 +1,5 @@
+#!/bin/python
+
 from __future__ import division
 import cPickle as pickle
 import numpy as np
@@ -42,15 +44,16 @@ def parser():
     parser = argparse.ArgumentParser(prog='data_prep.py',description='generates GW data for application of deep learning networks.')
 
     # arguments for reading in a data file
-    #parser.add_argument('-N', '--Nsig', type=int, default=3000, help='the number of example signals')
+    parser.add_argument('-N', '--Nsig', type=int, default=100, help='the number of example signals')
     #parser.add_argument('-n', '--Ntemp', type=int, default=3000, help='the number of templates per signal')
     parser.add_argument('-f', '--fsample', type=int, default=8192, help='the sampling frequency (Hz)')
     parser.add_argument('-T', '--Tobs', type=int, default=1, help='the observation duration (sec)')
-    parser.add_argument('-s', '--isnr', type=float, default=7, help='the signal integrated SNR')   
+    parser.add_argument('-i', '--isnr', type=float, default=7, help='the signal integrated SNR')   
     parser.add_argument('-z', '--seed', type=int, default=1, help='the random seed')
     parser.add_argument('-tb', '--temp-bank', type=str, help='template bank .xml file')
     parser.add_argument('-d', '--dataset', type=str, help='test set')
     parser.add_argument('-b', '--basename', type=str, default='test', help='output file path and basename.')
+    parser.add_argument('-s', '--start-sig', type=int, help='starting signal index')
 
     return parser.parse_args()
 
@@ -486,7 +489,7 @@ def main():
     isnr = args.isnr            # integrated SNR
     N = Tobs*fs                 # the total number of time samples
     n = N // 2 + 1              # the number of frequency bins
-    beta = [0.75,0.95]          # the desired window for merger time in fractions of input Tobs
+    beta = [0.5,1.0]          # the desired window for merger time in fractions of input Tobs
     tmp_bank = args.temp_bank
 
     # set path to file
@@ -506,7 +509,7 @@ def main():
 
     # load signal/noise dataset
     data = load_data(new_path)
-    Nsig = data[0].shape[0]
+    Nsig = args.Nsig    #data[0].shape[0]
 
     #chi_bool = True
     #chi_rho = []
@@ -540,9 +543,11 @@ def main():
 
     # loop over signals
     maxSNRts = np.zeros(Nsig)     # store maximised (over time) measured signal SNR
+    label = []
     print '{}: starting to generate data'.format(time.asctime())
     for i in xrange(Nsig):
-    
+        i = i + args.start_sig
+        label.append(data[1][i])    
         ###-CHANGE-TO-READ-IN-TEST-DATA-#############################################################
         # read in whitened time domain data 
         # generate parameters and unwhitened timeseries
@@ -583,10 +588,10 @@ def main():
 
             SNRts = snr_ts(data[0][i][0],wfhp,wfhc,Tobs,fs,wpsd,fmin,flag='fd')
             temp = np.max(SNRts[low_idx:high_idx])
-            if temp>maxSNRts[i]: maxSNRts[i] = temp
-        print '{}: maximised signal {} SNR (FD template) type {} = {}'.format(time.asctime(),i,data[1][i],maxSNRts[i])
+            if temp>maxSNRts[i-args.start_sig]: maxSNRts[i-args.start_sig] = temp
+        print '{}: maximised signal {} SNR (FD template) type {} = {}'.format(time.asctime(),i,data[1][i],maxSNRts[i-args.start_sig])
 
-    # seperate noise from signal
+    """# seperate noise from signal
     noise = []
     signals = []
     for idx, i in enumerate(maxSNRts):
@@ -612,10 +617,15 @@ def main():
     plt.ylim(ymin=1e-3,ymax=10)
     plt.yscale('log', nonposy='clip')
     plt.savefig('%slog_mf_template.png' % args.basename)
-
+    """
     # save list of rho for test signals and test noise
-    pickle_out = open("%srho_values.pickle" % args.basename, "wb")
+    pickle_out = open("%srho_values_%s-%s.pickle" % (args.basename,str(args.start_sig),str(args.start_sig+Nsig)), "wb")
     pickle.dump(maxSNRts, pickle_out)
+    pickle_out.close()
+
+    # save labels
+    pickle_out = open("%srho_labels_%s-%s.pickle" % (args.basename,str(args.start_sig),str(args.start_sig+Nsig)), "wb")
+    pickle.dump(label, pickle_out)
     pickle_out.close() 
 
 if __name__ == "__main__":
