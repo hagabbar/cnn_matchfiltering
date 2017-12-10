@@ -1,6 +1,6 @@
-universe=vanilla
+verse=vanilla
 executable=./chris_mf_template.py
-arguments="--temp-bank $(tb) --dataset $(d) --basename $(b) --Nsig $(Nsig) --start-sig $(st)"
+arguments="--temp-bank $(tb) --dataset $(d) --basename $(b) --Nsig $(Nsig) --start-sig $(st) --params $(params)"
 output=/dev/null
 error=target.$(Process).err
 log=target.log
