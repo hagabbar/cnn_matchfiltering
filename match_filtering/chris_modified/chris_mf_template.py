@@ -332,8 +332,11 @@ def gen_par(template,fs,T_obs,beta=[0.8,1.0]):
     # pick new random max amplitude sample location - within beta fractions
     # and slide waveform to that location
     low_idx,high_idx = convert_beta(beta,fs,T_obs)
-    idx = int(np.random.randint(low_idx,high_idx,1)[0])
-    #print '{}: selected bbh peak amplitude time = {}'.format(time.asctime(),idx/fs)
+    if low_idx==high_idx:
+        idx = low_idx
+    else:
+        idx = int(np.random.randint(low_idx,high_idx,1)[0])
+
 
     # the start index of the central region
     sidx = int(0.5*fs*T_obs*(safe-1.0)/safe)
@@ -444,14 +447,13 @@ def gen_fs(fs,T_obs,par):
     """
     generates a BBH timedomain signal
     """
-    fmin = get_fmin(par.M,par.eta,T_obs) 
 
     N = T_obs * fs      # the total number of time samples
     dt = 1 / fs             # the sampling time (sec)
     approximant = lalsimulation.IMRPhenomD
     f_high = fs/2.0
     df = 1.0/T_obs
-    f_low = df*int(fmin/df) # original had par.fmin
+    f_low = df*int(par.fmin/df) # used to be par.fmin
     f_ref = f_low    
     dist = 1e6*lal.PC_SI  # put it as 1 MPc
 
@@ -542,7 +544,7 @@ def main():
     isnr = args.isnr            # integrated SNR
     N = Tobs*fs                 # the total number of time samples
     n = N // 2 + 1              # the number of frequency bins
-    beta = [0.1,1.0]          # the desired window for merger time in fractions of input Tobs
+    beta = [0.5,1.0]          # the desired window for merger time in fractions of input Tobs
     tmp_bank = args.temp_bank
 
     # set path to file
@@ -554,7 +556,7 @@ def main():
     wpsd = (2.0/fs)*np.ones(n)         # define effective PSD for whited data
 
     # compute indices defining 
-    low_idx,high_idx = convert_beta(beta,fs,Tobs)
+    low_idx,high_idx = convert_beta([0,1],fs,Tobs)
 
     # load template bank
     tmp_bank = np.array(EventTable.read(tmp_bank,
@@ -605,7 +607,6 @@ def main():
     label = []
     print '{}: starting to generate data'.format(time.asctime())
     for i in xrange(Nsig):
-        i = 19
         i = i + args.start_sig
         label.append(data[1][i])    
         ###-CHANGE-TO-READ-IN-TEST-DATA-#############################################################
@@ -631,20 +632,21 @@ def main():
             # generate unwhitened frequency domain waveform
             if k==0:
                 temp_par = par #gen_par(tmp_bank[0],fs,Tobs,beta=beta) # uncomment to get your code back
-            #elif k==5 and sig_param[i]!=None: # remove this after doing ideal template fix!!!!!
+            #elif k==4 and sig_param[i]!=None: # remove this after doing ideal template fix!!!!!
             #    ideal_temp = [sig_param[i].m1,sig_param[i].m2,sig_param[i].eta,sig_param[i].mc]
-            #    temp_par = gen_par(ideal_temp,fs,Tobs,beta=beta)
+            #    temp_par = gen_par(ideal_temp,fs,Tobs,beta=[0,1])
             else:
-                temp_par = gen_par(tmp_bank[k],fs,Tobs,beta=beta)
+                temp_par = gen_par(tmp_bank[k],fs,Tobs,beta=[0,1])
        
                 # Chris original code
                 #temp_par = gen_par(fs,Tobs,beta=beta)
+
+            temp_par.fmin = get_fmin(temp_par.M,temp_par.eta,Tobs)
             fhp, fhc = gen_fs(fs,Tobs,temp_par)
             #print '{}: Generated random mass frequency domain template'.format(time.asctime())
             ##########################################################################################
 
             # compute lower cut-off freq for template based on chirp mass and Tobs
-            fmin = get_fmin(par.M,par.eta,Tobs)
             #print '{}: Template fmin -> {}'.format(time.asctime(),fmin)
 
             # whiten frequency domain template
@@ -658,11 +660,11 @@ def main():
             # Chris original code
             #SNRts = snr_ts(wdata,wfhp,wfhc,Tobs,fs,wpsd,fmin,flag='fd')
 
-            SNRts = snr_ts(data[0][i][0],wfhp,wfhc,Tobs,fs,wpsd,fmin,flag='fd')
+            SNRts = snr_ts(data[0][i][0],wfhp,wfhc,Tobs,fs,wpsd,temp_par.fmin,flag='fd')
             temp = np.max(SNRts[low_idx:high_idx])
             if temp>maxSNRts[i-args.start_sig]: maxSNRts[i-args.start_sig] = temp
         print '{}: maximised signal {} SNR (FD template) type {} = {}'.format(time.asctime(),i,data[1][i], maxSNRts[i-args.start_sig])
-        sys.exit()
+
     """# seperate noise from signal
     noise = []
     signals = []
