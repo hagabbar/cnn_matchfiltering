@@ -9,22 +9,42 @@ import numpy as np
 np.random.seed(1234)
 import cPickle as pickle
 import h5py
-from keras.layers import Conv2D, MaxPooling2D,Dense, Activation, Dropout, GaussianDropout, ActivityRegularization, Flatten
+from keras.layers import Conv2D, MaxPool2D,Dense, Activation, Dropout, GaussianDropout, ActivityRegularization, Flatten
 from keras.optimizers import *
 from keras.layers.normalization import BatchNormalization
-#from keras import initializers
+from keras import initializers
+from keras import regularizers
 from keras.activations import softmax, relu, elu
-#from keras.utils import to_categorical
+from keras.layers.advanced_activations import LeakyReLU, PReLU
+from keras.utils import to_categorical
 import os, sys, shutil
+import glob
 from math import exp, log
-import tensorflow as tf
-from keras.callbacks import EarlyStopping, ReduceLROnPlateau
+#import tensorflow as tf
+from keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from keras.models import load_model
-from matplotlib import use
-use('Agg')
-from matplotlib import pyplot as plt
 
 from clr_callback import *
+from sklearn import preprocessing
+
+from tensorflow.python.client import device_lib
+print(device_lib.list_local_devices())
+
+class bbhparams:
+    def __init__(self,mc,M,eta,m1,m2,ra,dec,iota,psi,idx,fmin,snr,SNR):
+        self.mc = mc
+        self.M = M
+        self.eta = eta
+        self.m1 = m1
+        self.m2 = m2
+        self.ra = ra
+        self.dec = dec
+        self.iota = iota
+        self.psi = psi
+        self.idx = idx
+        self.fmin = fmin
+        self.snr = snr
+        self.SNR = SNR
 
 def parser():
     """
@@ -41,6 +61,8 @@ def parser():
                         help='')
     parser.add_argument('-Nts', '--Ntimeseries', type=int, default=10000,
                         help='number of time series for training')
+    #parser.add_argument('-ds', '--set-seed', type=str,
+    #                    help='seed number for each training/validaiton/testing set')
     parser.add_argument('-Ntot', '--Ntotal', type=int, default=10,
                         help='number of available datasets with the same name as specified dataset')
     parser.add_argument('-Nval', '--Nvalidation', type=int, default=10000,
@@ -48,12 +70,21 @@ def parser():
     parser.add_argument('-Trd', '--training_dataset', type=str,
                        default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav', 
                        help='path to the data')
+    parser.add_argument('-Trp', '--training_params', type=str, #nargs='+',
+                       default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_params.sav',
+                       help='path to the training params')
     parser.add_argument('-Vald', '--validation_dataset', type=str,
                         default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav', 
                         help='path to the data')
+    #parser.add_argument('-Valp', '--validation_params', type=str,
+    #                    default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_params.sav',
+    #                    help='path to the validation params')
     parser.add_argument('-Tsd', '--test_dataset', type=str,
                         default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav', 
                         help='path to the data')
+    #parser.add_argument('-Tsp', '--test_params', type=str,
+    #                    default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_params.sav',
+    #                    help='path to the testing params')
     parser.add_argument('-bs', '--batch_size', type=int, default=20,
                         help='size of batches used for training/validation')
     parser.add_argument('-nw', '--noise_weight', type=float, default=1.0,
@@ -119,6 +150,8 @@ def parser():
     # general arguments
     parser.add_argument('-od', '--outdir', type=str, default='./history',
                         help='')
+    parser.add_argument('--notes', type=str,
+                        help='')
 
     return parser.parse_args()
 
@@ -160,7 +193,7 @@ def choose_optimizer(args):
         return Nadam(lr=lr, beta_1=args.beta_1, beta_2=args.beta_2, epsilon=args.epsilon, schedule_decay=args.decay)
 
 
-def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test, y_test):
+def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test, y_test, samp_weights):
 
     model = Sequential()
 
@@ -181,8 +214,8 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
                 data_format='channels_first',
                 dilation_rate=netargs.dilation[i],
                 use_bias=True,
-                kernel_initializer=keras.initializers.glorot_normal(),
-                bias_initializer=keras.initializers.glorot_normal(),
+                kernel_initializer=initializers.glorot_normal(),
+                bias_initializer=initializers.glorot_normal(),
                 kernel_regularizer=None,
                 bias_regularizer=None,
                 activity_regularizer=None,
@@ -190,7 +223,12 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
                 bias_constraint=None
             ))
 
-            model.add(Activation(netargs.activation[i]))
+            if netargs.activation[i] == 'leakyrelu':
+                model.add(LeakyReLU(alpha=0.01))#netargs.activation[i]))
+            elif netargs.activation[i] == 'prelu':
+                model.add(PReLU())
+            else:
+                model.add(Activation(netargs.activation[i]))
 
             model.add(BatchNormalization(
                 axis=1
@@ -199,7 +237,7 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
             model.add(GaussianDropout(netargs.dropout[i]))
 
             if netargs.pooling[i]:
-                model.add(MaxPooling2D(
+                model.add(MaxPool2D(
                     pool_size=netargs.pool_size[i],
                     strides=netargs.pool_stride[i],
                     padding='valid',
@@ -210,19 +248,47 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
             # standard fully conected layer
             model.add(Flatten())
             model.add(Dense(
-                netargs.Nfilters[i],
-                activation=netargs.activation[i],
+                netargs.Nfilters[i]
+                #kernel_regularizer=regularizers.l1(0.01)
             ))
+
+            if netargs.activation[i] == 'leakyrelu':
+                model.add(LeakyReLU(alpha=0.01))#netargs.activation[i]))
+            elif netargs.activation[i] == 'prelu':
+                model.add(PReLU())
+            else:
+                model.add(Activation(netargs.activation[i]))
+
+            model.add(GaussianDropout(netargs.dropout[i]))
+
+        elif int(op) == 2:
+            # standard fully conected layer
+            #model.add(Flatten())
+            model.add(Dense(
+                netargs.Nfilters[i]
+                #kernel_regularizer=regularizers.l1(0.01)
+            ))
+
+            if netargs.activation[i] == 'leakyrelu':
+                model.add(LeakyReLU(alpha=0.01))#netargs.activation[i]))
+            elif netargs.activation[i] == 'prelu':
+                model.add(PReLU())
+            else:
+                model.add(Activation(netargs.activation[i]))
 
             model.add(GaussianDropout(netargs.dropout[i]))
 
         elif int(op) == 4:
             # softmax output layer
             model.add(Dense(
-                netargs.num_classes,
-                activation=netargs.activation[i]
+                netargs.num_classes
             ))
-
+            if netargs.activation[i] == 'leakyrelu':
+                model.add(LeakyReLU(alpha=0.01))#netargs.activation[i]))
+            elif netargs.activation[i] == 'prelu':
+                model.add(PReLU())
+            else:
+                model.add(Activation(netargs.activation[i]))
 
     print('Compiling model...')
 
@@ -236,25 +302,37 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
 
     #TODO: add options to enable/disable certain callbacks
 
+
     clr = CyclicLR(base_lr=args.lr, max_lr=args.max_learning_rate, step_size=args.stepsize)
 
-    earlyStopping = EarlyStopping(monitor='val_loss', patience=args.patience, verbose=0, mode='auto')
+    earlyStopping = EarlyStopping(monitor='val_acc', patience=args.patience, verbose=0, mode='auto')
 
-    redLR = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.LRpatience, verbose=0, mode='auto',
+    redLR = ReduceLROnPlateau(monitor='val_acc', factor=0.1, patience=args.LRpatience, verbose=0, mode='auto',
                               epsilon=0.0001, cooldown=0, min_lr=0)
 
-    modelCheck = ModelCheckpoint('{0}/best_weights.hdf5'.format(outdir), monitor='val_loss', verbose=0, save_best_only=True,save_weights_only=True, mode='auto', period=0)
+    modelCheck = ModelCheckpoint('{0}/best_weights.hdf5'.format(outdir), monitor='val_acc', verbose=0, save_best_only=True,save_weights_only=True, mode='auto', period=0)
 
     print('Fitting model...')
-
-    hist = model.fit(x_train, y_train,
-                     epochs=args.n_epochs,
-                     batch_size=args.batch_size,
-                     class_weight=netargs.class_weight,
-                     validation_data=(x_val, y_val),
-                     shuffle=True,
-                     verbose=1,
-                     callbacks=[clr, earlyStopping, redLR, modelCheck])
+    if args.lr != args.max_learning_rate:
+        hist = model.fit(x_train, y_train,
+                         epochs=args.n_epochs,
+                         batch_size=args.batch_size,
+                         #class_weight=netargs.class_weight,
+                         sample_weight=samp_weights,
+                         validation_data=(x_val, y_val),
+                         shuffle=True,
+                         verbose=1,
+                         callbacks=[clr, earlyStopping, redLR, modelCheck])
+    else:
+        hist = model.fit(x_train, y_train,
+                         epochs=args.n_epochs,
+                         batch_size=args.batch_size,
+                         #class_weight=netargs.class_weight,
+                         sample_weight=samp_weights,
+                         validation_data=(x_val, y_val),
+                         shuffle=True,
+                         verbose=1,
+                         callbacks=[earlyStopping, modelCheck])
 
     print('Evaluating model...')
 
@@ -401,6 +479,30 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
     return base_train_set, base_valid_set, base_test_set
 
 
+def truncate_dataset(dataset, start, length):
+    """
+
+    :param dataset:
+    :param start:
+    :param end:
+    :return:
+    """
+    print('    length of data prior to truncating: {0}'.format(dataset[0].shape))
+    print('    truncating data between {0} and {1}'.format(start, start+length))
+    # shape of truncated dataset
+    new_shape = (dataset[0].shape[0],1,length)
+    # array to populate
+    #truncated_data = np.empty(new_shape, dtype=np.ndarray)
+    # loop over data and truncate
+    #for i,ts in enumerate(dataset[0]):
+    #    truncated_data[i] = ts[0,start:(start+length)].reshape(1,length)
+
+    dataset[0] = dataset[0][:,:,start:(start+length)]
+    print('    length of truncated data: {}'.format(dataset[0].shape))
+    return dataset
+
+
+
 def load_data(args, netargs):
     """
     Load the data set
@@ -413,17 +515,37 @@ def load_data(args, netargs):
         args.training_dataset, args.validation_dataset, args.test_dataset,
         args.Ntimeseries,Nval=args.Nvalidation, Ntot=args.Ntotal)
 
+    start = 4096
+    length = 8192
+    print('Truncating training set')
+    train_set = truncate_dataset(train_set,start, length)
+    print('Truncating validation set')
+    valid_set = truncate_dataset(valid_set,start, length)
+    print('Truncating test set')
+    test_set = truncate_dataset(test_set, start, length)
+
     Ntrain = train_set[0].shape[0]
     xshape = train_set[0].shape[1]
     yshape = train_set[0].shape[2]
     channels = 1
 
-    x_train = train_set[0].reshape(Ntrain, channels, xshape, yshape)
-    y_train = keras.utils.to_categorical(train_set[1], num_classes=netargs.num_classes)
-    x_val = valid_set[0].reshape(valid_set[0].shape[0], channels, xshape, yshape)
-    y_val = keras.utils.to_categorical(valid_set[1], num_classes=netargs.num_classes)
-    x_test = test_set[0].reshape(test_set[0].shape[0], channels, xshape, yshape)
-    y_test = keras.utils.to_categorical(test_set[1], num_classes=netargs.num_classes)
+    rescale = False
+
+    if rescale:
+        print('Rescaling data')
+        for i in range(Ntrain):
+            train_set[0][i] = preprocessing.normalize(train_set[0][i])
+
+        for i in range(args.Nvalidation):
+            valid_set[0][i] = preprocessing.normalize(valid_set[0][i])
+            test_set[0][i] = preprocessing.normalize(test_set[0][i])
+
+    x_train = (train_set[0].reshape(Ntrain, channels, xshape, yshape))
+    y_train = to_categorical(train_set[1], num_classes=netargs.num_classes)
+    x_val = (valid_set[0].reshape(valid_set[0].shape[0], channels, xshape, yshape))
+    y_val = to_categorical(valid_set[1], num_classes=netargs.num_classes)
+    x_test = (test_set[0].reshape(test_set[0].shape[0], channels, xshape, yshape))
+    y_test = to_categorical(test_set[1], num_classes=netargs.num_classes)
 
     print('Traning set dimensions: {0}'.format(x_train.shape))
     print('Validation set dimensions: {0}'.format(x_val.shape))
@@ -438,7 +560,46 @@ def main(args):
     # convert args to correct format for network
     netargs = network_args(args)
 
+    #print(args.training_params+args.set_seed.split(',')[0]+'seed_params')
+    #sys.exit()
 
+    # load in training set weighting parameters
+    for idx,file in enumerate(glob.glob('%s*' % args.training_params)):
+        if idx == 0:
+            with open(file, 'rb') as rfp:
+                tr_params = np.array(pickle.load(rfp))
+        else:
+            with open(file, 'rb') as rfp:
+                tr_params = np.append(tr_params,np.array(pickle.load(rfp)))
+
+    # calculate unormalized weighting vector
+    final_tr_params = []
+    sig_params = []
+    for samp in tr_params:
+        if samp == None:
+            final_tr_params.append(1)
+        elif samp != None:
+            final_tr_params.append(samp.mc**(-5.0/3.0))
+            sig_params.append(samp.mc**(-5.0/3.0))
+
+
+    if samp != None:
+        # normalize weighting vector
+        sig_params /= np.max(np.abs(np.array(sig_params)),axis=0)
+        sig_params *= 1e0
+        #sig_params = np.array(sig_params)
+        count = 0
+        final_tr_params = []
+        for samp in tr_params:
+            if samp == None:
+                final_tr_params.append(1/np.max(np.abs(np.array(sig_params)),axis=0))
+            if samp != None:
+                final_tr_params.append(sig_params[count]) 
+                count += 1
+
+    final_tr_params = np.array(final_tr_params)
+
+    # load in time series info
     x_train, y_train, x_val, y_val, x_test, y_test = load_data(args, netargs)
 
     if not os.path.exists('{0}/SNR{1}'.format(args.outdir,args.SNR)):
@@ -447,20 +608,21 @@ def main(args):
     Nrun = 0
     while os.path.exists('{0}/SNR{1}/run{2}'.format(args.outdir,args.SNR,Nrun)):
         Nrun += 1
-    os.makedirs('{0}/SNR{1}/run{2}'.format(args.outdir, args.SNR,Nrun))
-
-    print('Results will be saved at: {0}/SNR{1}/run{2}'.format(args.outdir,args.SNR,Nrun))
-
-    with open('{0}/SNR{1}/run{2}/args.pkl'.format(args.outdir, args.SNR,Nrun), "wb") as wfp:
-        pickle.dump(args, wfp)
+    os.makedirs('{0}/SNR{1}/run{2}'.format(args.outdir, args.SNR, Nrun))
 
     shape = x_train.shape[1:]
     out = '{0}/SNR{1}/run{2}'.format(args.outdir, args.SNR,Nrun)
 
+    # train and test network
     model, hist, eval_results, preds = network(args, netargs, shape, out,
-                                               x_train, y_train, x_val, y_val, x_test, y_test)
+                                               x_train, y_train, x_val, y_val, x_test, y_test, final_tr_params)
 
-    print('{0}: {1}'.format(model.metrics_names, eval_results))
+
+    with open('{0}/SNR{1}/run{2}/args.pkl'.format(args.outdir, args.SNR, Nrun), "wb") as wfp:
+        pickle.dump(args, wfp)
+
+    for m,r in zip(model.metrics_names, eval_results):
+        print('Test {0}: {1}'.format(m, r))
 
     #shutil.copy('./runCNN.sh', '{0}/SNR{1}/run{2}'.format(args.outdir, args.SNR,Nrun))
 
@@ -468,8 +630,9 @@ def main(args):
     np.save('{0}/SNR{1}/run{2}/targets.npy'.format(args.outdir,args.SNR,Nrun),y_test)
     np.save('{0}/SNR{1}/run{2}/preds.npy'.format(args.outdir,args.SNR,Nrun), preds)
     np.save('{0}/SNR{1}/run{2}/history.npy'.format(args.outdir,args.SNR,Nrun), hist.history)
-    np.save('{0}/SNR{1}/run{2}/test_results.pny'.format(args.outdir,args.SNR,Nrun),eval_results)
+    np.save('{0}/SNR{1}/run{2}/test_results.npy'.format(args.outdir,args.SNR,Nrun),eval_results)
 
+    print('Results saved at: {0}/SNR{1}/run{2}'.format(args.outdir,args.SNR,Nrun))
 
 if __name__ == '__main__':
     args = parser()
