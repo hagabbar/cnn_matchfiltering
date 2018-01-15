@@ -24,7 +24,7 @@ from math import exp, log
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from keras.models import load_model
 
-from clr_callback import *
+#from clr_callback import *
 from sklearn import preprocessing
 
 from tensorflow.python.client import device_lib
