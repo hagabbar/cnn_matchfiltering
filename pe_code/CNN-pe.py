@@ -67,6 +67,8 @@ def parser():
                         help='number of available datasets with the same name as specified dataset')
     parser.add_argument('-Nval', '--Nvalidation', type=int, default=10000,
                         help='')
+
+    # arguments for input data to network (e.g training/testing/validation data/params)
     parser.add_argument('-Trd', '--training_dataset', type=str,
                        default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav', 
                        help='path to the data')
@@ -76,15 +78,17 @@ def parser():
     parser.add_argument('-Vald', '--validation_dataset', type=str,
                         default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav', 
                         help='path to the data')
-    #parser.add_argument('-Valp', '--validation_params', type=str,
-    #                    default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_params.sav',
-    #                    help='path to the validation params')
+    parser.add_argument('-Valp', '--validation_params', type=str,
+                        default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_params.sav',
+                        help='path to the validation params')
     parser.add_argument('-Tsd', '--test_dataset', type=str,
                         default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav', 
                         help='path to the data')
-    #parser.add_argument('-Tsp', '--test_params', type=str,
-    #                    default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_params.sav',
-    #                    help='path to the testing params')
+    parser.add_argument('-Tsp', '--test_params', type=str,
+                        default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_params.sav',
+                        help='path to the testing params')
+
+
     parser.add_argument('-bs', '--batch_size', type=int, default=20,
                         help='size of batches used for training/validation')
     parser.add_argument('-nw', '--noise_weight', type=float, default=1.0,
