@@ -297,7 +297,7 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
     print('Compiling model...')
 
     model.compile(
-        loss="categorical_crossentropy",
+        loss="mean_squared_error",
         optimizer=optimizer,
         metrics=["accuracy", "categorical_crossentropy"]
     )
@@ -368,6 +368,7 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
     print('Using validation data for: {0}'.format(val_name))
     print('Using test data for: {0}'.format(test_name))
 
+    sys.exit()
     # load in dataset 0 params and labels
     with open(training_dataset, 'rb') as rfp:
         with open(training_params, 'rb') as p:
