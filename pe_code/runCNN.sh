@@ -23,12 +23,12 @@ export CUDA_VISIBLE_DEVICES=0
 
 # Location and name of training/validation/test sets:
 # set for use on deimos
-training_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_ts_0.sav
-val_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${3}_1seed_ts_0.sav
-test_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${3}_1seed_ts_0.sav
-training_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_${4}seed_params_
-test_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_${4}seed_params_
-val_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_val_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_${4}seed_params_
+training_dataset=/home/chrism/deepdata_bbh/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_188seed_ts_0.sav
+val_dataset=/home/chrism/deepdata_bbh/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_18seed_ts_0.sav
+test_dataset=/home/chrism/deepdata_bbh/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_148seed_ts_0.sav
+training_params=/home/chrism/deepdata_bbh/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_188seed_params_0.sav
+test_params=/home/chrism/deepdata_bbh/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_148seed_params_0.sav
+val_params=/home/chrism/deepdata_bbh/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_18seed_params_0.sav
 
 Nts=100000               # Number of time series
 Nval=10000              # Number of time series for validation/testing
@@ -76,8 +76,9 @@ dropout="0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0"
 
 functions="elu,elu,elu,elu,elu,elu,elu,elu,elu,softmax"
 
-./CNN-keras.py -SNR=${1} -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
+./CNN-pe.py -SNR=${1} -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
  -Trd=$training_dataset -Vald=$val_dataset -Tsd=$test_dataset -bs=$batch_size\
+ -Trp=$training_params -Valp=$val_params -Tsp=$test_params \
  -opt=$opt -lr=$learning_rate -mlr=$max_learning_rate -NE=$n_epochs -dy=$decay \
  -ss=$stepsize -mn=$momentum --nesterov=$nesterov --rho=$rho --epsilon=$epsilon \
  --beta_1=$beta_1 --beta_2=$beta_2 -pt=$patience -lpt=$LRpatience \

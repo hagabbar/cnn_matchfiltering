@@ -24,7 +24,7 @@ from math import exp, log
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from keras.models import load_model
 
-from clr_callback import *
+#from clr_callback import *
 from sklearn import preprocessing
 
 from tensorflow.python.client import device_lib
@@ -370,12 +370,221 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
 
     # load in dataset 0
     with open(training_dataset, 'rb') as rfp:
-        base_train_set = pickle.load(rfp)
+        base_train_set = np.array(pickle.load(rfp))
 
     with open(val_dataset, 'rb') as rfp:
-        base_valid_set = pickle.load(rfp)
+        base_valid_set = np.array(pickle.load(rfp))
 
     with open(test_dataset, 'rb') as rfp:
+        base_test_set = np.array(pickle.load(rfp))
+
+    # size of data sets
+    size = len(base_train_set)
+    val_size = len(base_valid_set)
+    # number of datasets -  depends on Nts
+    Nds = np.floor(Nts / float(size))
+    # check there are sufficient datasets
+    if not Nds <= Ntot:
+        print('Error: Insufficient datasets for number of time series')
+        exit(0)
+
+    # start with training set
+    # if more than the initial data set is needed
+    if Nds > 1:
+        # how many images/time series needed
+        need = Nts - size
+
+        # loop over enough files to reach total number of time series
+        for fn in range(1,int(Nds)):
+            # load in dataset
+            dataset = '{0}_{1}.sav'.format(name,fn)
+            with open(dataset, 'rb') as rfp:
+                train_set = pickle.load(rfp)
+            # check if this set needs truncating
+            if need > size:
+                cut = size
+            else:
+                cut = need
+
+            # empty arrays to populate
+            aug_train_set = np.zeros(1, dtype = np.ndarray) # change to two if wanting labels as well
+            # concatenate the arrays
+            for i in range(1): # change to 2 if also wanting labels
+                aug_train_set[i] = np.concatenate((base_train_set[i], train_set[i][:cut]), axis=0)
+            # copy as base set for next loop
+            base_train_set = aug_train_set
+
+
+            need -= size
+
+
+    else:
+        # return truncated version of the initial data set
+        # change both 1 numbers back to 2 if wanting labels as well
+        aug_train_set = np.zeros(1, dtype=np.ndarray)
+
+        for i in range(1):
+            aug_train_set[i] = base_train_set[i][:Nts]
+
+        base_train_set = aug_train_set
+
+    # validation/testing fixed at 10K
+    Nds_val = np.floor(Nval / float(val_size))
+    # check there are sufficient datasets
+    if not Nds_val <= Ntot:
+        print('Error: Insufficient datasets for number of time series')
+        exit(0)
+
+    if Nds_val > 1:
+        # how many images/time series needed
+        need = Nval - val_size
+
+        # loop over enough files to reach total number of time series
+        for fn in range(1,int(Nds_val)):
+            # load in dataset
+            val_dataset = '{0}_{1}.sav'.format(val_name,fn)
+            test_dataset = '{0}_{1}.sav'.format(test_name,fn)
+            with open(val_dataset, 'rb') as rfp:
+                valid_set = pickle.load(rfp)
+            with open(test_dataset, 'rb') as rfp:
+                test_set = pickle.load(rfp)
+            # check if this set needs truncating
+            if need > val_size:
+                cut = val_size
+            else:
+                cut = need
+
+            # empty arrays to populate
+            aug_valid_set = np.zeros(1, dtype = np.ndarray) # change back to 2 for labels
+            aug_test_set = np.zeros(1, dtype=np.ndarray) # change back to 2 for labels
+            # concatenate the arrays
+            for i in range(1): # change back to 2 for labels
+                aug_valid_set[i] = np.concatenate((base_valid_set[i], valid_set[i][:cut]), axis=0)
+                aug_test_set[i] = np.concatenate((base_test_set[i], test_set[i][:cut]), axis=0)
+
+            # copy as base set for next loop
+            base_valid_set = aug_valid_set
+            base_test_set = aug_test_set
+
+            need -= val_size
+
+
+    else:
+        # return truncated version of the initial data set
+        aug_valid_set = np.zeros(1, dtype=np.ndarray) # change back to 2 for labels
+        aug_test_set = np.zeros(1, dtype=np.ndarray) # change back to 2 for labels
+
+        for i in range(1): # change back to 2 for labels
+            aug_valid_set[i] = base_valid_set[i][:Nval]
+            aug_test_set[i] = base_test_set[i][:Nval]
+
+        base_valid_set = aug_valid_set
+        base_test_set = aug_test_set
+
+    return base_train_set, base_valid_set, base_test_set
+
+
+def truncate_dataset(dataset, start, length):
+    """
+
+    :param dataset:
+    :param start:
+    :param end:
+    :return:
+    """
+    print('    length of data prior to truncating: {0}'.format(dataset[0].shape))
+    print('    truncating data between {0} and {1}'.format(start, start+length))
+    # shape of truncated dataset
+    new_shape = (dataset[0].shape[0],1,length)
+    # array to populate
+    #truncated_data = np.empty(new_shape, dtype=np.ndarray)
+    # loop over data and truncate
+    #for i,ts in enumerate(dataset[0]):
+    #    truncated_data[i] = ts[0,start:(start+length)].reshape(1,length)
+
+    dataset[0] = dataset[0][:,:,start:(start+length)]
+    print('    length of truncated data: {}'.format(dataset[0].shape))
+    return dataset
+
+
+
+def load_data(args, netargs):
+    """
+    Load the data set
+    :param dataset: the path to the data set (string)
+    :param Nts: total number of time series for training
+    :return: tuple of theano data set
+    """
+
+    train_set, valid_set, test_set = concatenate_datasets(
+        args.training_params, args.validation_params, args.test_params,
+        args.Ntimeseries,Nval=args.Nvalidation, Ntot=args.Ntotal)
+
+    print(train_set)
+    sys.exit()
+
+    start = 4096
+    length = 8192
+    print('Truncating training set')
+    train_set = truncate_dataset(train_set,start, length)
+    print('Truncating validation set')
+    valid_set = truncate_dataset(valid_set,start, length)
+    print('Truncating test set')
+    test_set = truncate_dataset(test_set, start, length)
+
+    Ntrain = train_set[0].shape[0]
+    xshape = train_set[0].shape[1]
+    yshape = train_set[0].shape[2]
+    channels = 1
+
+    rescale = False
+
+    if rescale:
+        print('Rescaling data')
+        for i in range(Ntrain):
+            train_set[0][i] = preprocessing.normalize(train_set[0][i])
+
+        for i in range(args.Nvalidation):
+            valid_set[0][i] = preprocessing.normalize(valid_set[0][i])
+            test_set[0][i] = preprocessing.normalize(test_set[0][i])
+
+    x_train = (train_set[0].reshape(Ntrain, channels, xshape, yshape))
+    y_train = to_categorical(train_set[1], num_classes=netargs.num_classes)
+    x_val = (valid_set[0].reshape(valid_set[0].shape[0], channels, xshape, yshape))
+    y_val = to_categorical(valid_set[1], num_classes=netargs.num_classes)
+    x_test = (test_set[0].reshape(test_set[0].shape[0], channels, xshape, yshape))
+    y_test = to_categorical(test_set[1], num_classes=netargs.num_classes)
+
+    print('Traning set dimensions: {0}'.format(x_train.shape))
+    print('Validation set dimensions: {0}'.format(x_val.shape))
+    print('Test set dimensions: {0}'.format(x_test.shape))
+
+    return x_train, y_train, x_val, y_val, x_test, y_test
+
+def load_params(args,netargs):
+    """
+    Function to load training/testing/validation parameters
+
+    Parameters
+    ----------
+    args:
+        arguments
+    netargs:
+        arguments pertinant only to the neural network
+
+    Returns
+    -------
+    
+    """
+
+    # load in paramset 0
+    with open(args.training_params, 'rb') as rfp:
+        base_train_set = pickle.load(rfp)
+
+    with open(args.validation_params, 'rb') as rfp:
+        base_valid_set = pickle.load(rfp)
+
+    with open(args.test_params, 'rb') as rfp:
         base_test_set = pickle.load(rfp)
 
     # size of data sets
@@ -387,6 +596,7 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
     if not Nds <= Ntot:
         print('Error: Insufficient datasets for number of time series')
         exit(0)
+
 
     # start with training set
     # if more than the initial data set is needed
@@ -416,7 +626,6 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
 
 
             need -= size
-
 
     else:
         # return truncated version of the initial data set
@@ -467,7 +676,6 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
 
             need -= val_size
 
-
     else:
         # return truncated version of the initial data set
         aug_valid_set = np.zeros(2, dtype=np.ndarray)
@@ -482,83 +690,6 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
 
     return base_train_set, base_valid_set, base_test_set
 
-
-def truncate_dataset(dataset, start, length):
-    """
-
-    :param dataset:
-    :param start:
-    :param end:
-    :return:
-    """
-    print('    length of data prior to truncating: {0}'.format(dataset[0].shape))
-    print('    truncating data between {0} and {1}'.format(start, start+length))
-    # shape of truncated dataset
-    new_shape = (dataset[0].shape[0],1,length)
-    # array to populate
-    #truncated_data = np.empty(new_shape, dtype=np.ndarray)
-    # loop over data and truncate
-    #for i,ts in enumerate(dataset[0]):
-    #    truncated_data[i] = ts[0,start:(start+length)].reshape(1,length)
-
-    dataset[0] = dataset[0][:,:,start:(start+length)]
-    print('    length of truncated data: {}'.format(dataset[0].shape))
-    return dataset
-
-
-
-def load_data(args, netargs):
-    """
-    Load the data set
-    :param dataset: the path to the data set (string)
-    :param Nts: total number of time series for training
-    :return: tuple of theano data set
-    """
-
-    train_set, valid_set, test_set = concatenate_datasets(
-        args.training_dataset, args.validation_dataset, args.test_dataset,
-        args.Ntimeseries,Nval=args.Nvalidation, Ntot=args.Ntotal)
-
-    start = 4096
-    length = 8192
-    print('Truncating training set')
-    train_set = truncate_dataset(train_set,start, length)
-    print('Truncating validation set')
-    valid_set = truncate_dataset(valid_set,start, length)
-    print('Truncating test set')
-    test_set = truncate_dataset(test_set, start, length)
-
-    Ntrain = train_set[0].shape[0]
-    xshape = train_set[0].shape[1]
-    yshape = train_set[0].shape[2]
-    channels = 1
-
-    rescale = False
-
-    if rescale:
-        print('Rescaling data')
-        for i in range(Ntrain):
-            train_set[0][i] = preprocessing.normalize(train_set[0][i])
-
-        for i in range(args.Nvalidation):
-            valid_set[0][i] = preprocessing.normalize(valid_set[0][i])
-            test_set[0][i] = preprocessing.normalize(test_set[0][i])
-
-    x_train = (train_set[0].reshape(Ntrain, channels, xshape, yshape))
-    y_train = to_categorical(train_set[1], num_classes=netargs.num_classes)
-    x_val = (valid_set[0].reshape(valid_set[0].shape[0], channels, xshape, yshape))
-    y_val = to_categorical(valid_set[1], num_classes=netargs.num_classes)
-    x_test = (test_set[0].reshape(test_set[0].shape[0], channels, xshape, yshape))
-    y_test = to_categorical(test_set[1], num_classes=netargs.num_classes)
-
-    print('Traning set dimensions: {0}'.format(x_train.shape))
-    print('Validation set dimensions: {0}'.format(x_val.shape))
-    print('Test set dimensions: {0}'.format(x_test.shape))
-
-
-    return x_train, y_train, x_val, y_val, x_test, y_test
-
-
 def main(args):
     # get arguments
     # convert args to correct format for network
@@ -568,40 +699,40 @@ def main(args):
     #sys.exit()
 
     # load in training set weighting parameters
-    for idx,file in enumerate(glob.glob('%s*' % args.training_params)):
-        if idx == 0:
-            with open(file, 'rb') as rfp:
-                tr_params = np.array(pickle.load(rfp))
-        else:
-            with open(file, 'rb') as rfp:
-                tr_params = np.append(tr_params,np.array(pickle.load(rfp)))
+    #for idx,file in enumerate(glob.glob('%s*' % args.training_params)):
+    #    if idx == 0:
+    #        with open(file, 'rb') as rfp:
+    #            tr_params = np.array(pickle.load(rfp))
+    #    else:
+    #        with open(file, 'rb') as rfp:
+    #            tr_params = np.append(tr_params,np.array(pickle.load(rfp)))
 
     # calculate unormalized weighting vector
-    final_tr_params = []
-    sig_params = []
-    for samp in tr_params:
-        if samp == None:
-            final_tr_params.append(1)
-        elif samp != None:
-            final_tr_params.append(samp.mc**(-5.0/3.0))
-            sig_params.append(samp.mc**(-5.0/3.0))
+    #final_tr_params = []
+    #sig_params = []
+    #for samp in tr_params:
+    #    if samp == None:
+    #        final_tr_params.append(1)
+    #    elif samp != None:
+    #        final_tr_params.append(samp.mc**(-5.0/3.0))
+    #        sig_params.append(samp.mc**(-5.0/3.0))
 
 
-    if samp != None:
+    #if samp != None:
         # normalize weighting vector
-        sig_params /= np.max(np.abs(np.array(sig_params)),axis=0)
-        sig_params *= 1e0
+   #     sig_params /= np.max(np.abs(np.array(sig_params)),axis=0)
+   #     sig_params *= 1e0
         #sig_params = np.array(sig_params)
-        count = 0
-        final_tr_params = []
-        for samp in tr_params:
-            if samp == None:
-                final_tr_params.append(1/np.max(np.abs(np.array(sig_params)),axis=0))
-            if samp != None:
-                final_tr_params.append(sig_params[count]) 
-                count += 1
+   #     count = 0
+   #     final_tr_params = []
+   #     for samp in tr_params:
+   #         if samp == None:
+   #             final_tr_params.append(1/np.max(np.abs(np.array(sig_params)),axis=0))
+   #         if samp != None:
+   #             final_tr_params.append(sig_params[count]) 
+   #             count += 1
 
-    final_tr_params = np.array(final_tr_params)
+   # final_tr_params = np.array(final_tr_params)
 
     # load in time series info
     x_train, y_train, x_val, y_val, x_test, y_test = load_data(args, netargs)
