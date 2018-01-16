@@ -351,7 +351,7 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
     return model, hist, eval_results, preds
 
 
-def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval = 10000, Ntot = 10):
+def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_params, val_params, test_params, Nts, Nval = 10000, Ntot = 10):
     """
     shorten and concatenate data
     :param initial_dataset: first dataset in the set
@@ -368,19 +368,41 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
     print('Using validation data for: {0}'.format(val_name))
     print('Using test data for: {0}'.format(test_name))
 
-    # load in dataset 0
+    # load in dataset 0 params and labels
     with open(training_dataset, 'rb') as rfp:
-        base_train_set = np.array(pickle.load(rfp))
+        with open(training_params, 'rb') as p:
+            base_train_set = pickle.load(rfp)[1]
+            base_train_par = np.array(pickle.load(p))
+            base_train_set = [base_train_par, base_train_set]
+
+            # set noise sample param values to zero
+            # get desired parameter
+            base_train_set[0][base_train_set[0] == None] = 0
+            base_train_set[0][base_train_set[0] != 0] = 
 
     with open(val_dataset, 'rb') as rfp:
-        base_valid_set = np.array(pickle.load(rfp))
+        with open(val_params, 'rb') as p:
+            base_valid_set = pickle.load(rfp)[1]
+            base_valid_par = np.array(pickle.load(p))
+            base_valid_set = [base_valid_par, base_valid_set]
+
+            # set noise sample param values to zero
+            # get desired parameter
+            base_valid_set[0][base_valid_set[0] == None] = 0
 
     with open(test_dataset, 'rb') as rfp:
-        base_test_set = np.array(pickle.load(rfp))
+        with open(test_params, 'rb') as p:
+            base_test_set = pickle.load(rfp)
+            base_test_par = np.array(pickle.load(p))
+            base_test_set = [base_test_par, base_test_set]
+
+            # set noise sample param values to zero
+            # get desired parameter
+            base_test_set[0][base_test_set[0] == None] = 0
 
     # size of data sets
-    size = len(base_train_set)
-    val_size = len(base_valid_set)
+    size = len(base_train_set[0])
+    val_size = len(base_valid_set[0])
     # number of datasets -  depends on Nts
     Nds = np.floor(Nts / float(size))
     # check there are sufficient datasets
@@ -407,9 +429,12 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
                 cut = need
 
             # empty arrays to populate
-            aug_train_set = np.zeros(1, dtype = np.ndarray) # change to two if wanting labels as well
+            aug_train_set = np.zeros(2, dtype = np.ndarray) # change to two if wanting labels as well
             # concatenate the arrays
-            for i in range(1): # change to 2 if also wanting labels
+            for i in range(2): # change to 2 if also wanting labels
+                base_train_set[i][base_train_set[i] == None] = 0
+                print(base_train_set[i])
+                sys.exit()
                 aug_train_set[i] = np.concatenate((base_train_set[i], train_set[i][:cut]), axis=0)
             # copy as base set for next loop
             base_train_set = aug_train_set
@@ -421,9 +446,9 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
     else:
         # return truncated version of the initial data set
         # change both 1 numbers back to 2 if wanting labels as well
-        aug_train_set = np.zeros(1, dtype=np.ndarray)
+        aug_train_set = np.zeros(2, dtype=np.ndarray)
 
-        for i in range(1):
+        for i in range(2):
             aug_train_set[i] = base_train_set[i][:Nts]
 
         base_train_set = aug_train_set
@@ -455,10 +480,10 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
                 cut = need
 
             # empty arrays to populate
-            aug_valid_set = np.zeros(1, dtype = np.ndarray) # change back to 2 for labels
-            aug_test_set = np.zeros(1, dtype=np.ndarray) # change back to 2 for labels
+            aug_valid_set = np.zeros(2, dtype = np.ndarray) # change back to 2 for labels
+            aug_test_set = np.zeros(2, dtype=np.ndarray) # change back to 2 for labels
             # concatenate the arrays
-            for i in range(1): # change back to 2 for labels
+            for i in range(2): # change back to 2 for labels
                 aug_valid_set[i] = np.concatenate((base_valid_set[i], valid_set[i][:cut]), axis=0)
                 aug_test_set[i] = np.concatenate((base_test_set[i], test_set[i][:cut]), axis=0)
 
@@ -471,10 +496,10 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
 
     else:
         # return truncated version of the initial data set
-        aug_valid_set = np.zeros(1, dtype=np.ndarray) # change back to 2 for labels
-        aug_test_set = np.zeros(1, dtype=np.ndarray) # change back to 2 for labels
+        aug_valid_set = np.zeros(2, dtype=np.ndarray) # change back to 2 for labels
+        aug_test_set = np.zeros(2, dtype=np.ndarray) # change back to 2 for labels
 
-        for i in range(1): # change back to 2 for labels
+        for i in range(2): # change back to 2 for labels
             aug_valid_set[i] = base_valid_set[i][:Nval]
             aug_test_set[i] = base_test_set[i][:Nval]
 
@@ -517,6 +542,7 @@ def load_data(args, netargs):
     """
 
     train_set, valid_set, test_set = concatenate_datasets(
+        args.training_dataset, args.validation_dataset, args.test_dataset,
         args.training_params, args.validation_params, args.test_params,
         args.Ntimeseries,Nval=args.Nvalidation, Ntot=args.Ntotal)
 
