@@ -163,7 +163,7 @@ def parser():
 class network_args:
     def __init__(self, args):
         self.features = np.array(args.features.split(','))
-        self.num_classes = 2
+        self.num_classes = 1 
         self.class_weight = {0:args.noise_weight, 1:args.sig_weight}
         self.Nfilters = np.array(args.nfilters.split(",")).astype('int')
         self.kernel_size = np.array([i.split("-") for i in np.array(args.filter_size.split(","))]).astype('int')
@@ -368,50 +368,52 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
     print('Using validation data for: {0}'.format(val_name))
     print('Using test data for: {0}'.format(test_name))
 
+    par_name = training_params.split('_0')[0]
+    par_val_name = val_params.split('_0')[0]
+    par_test_name = test_params.split('_0')[0]
+    print('Using training parameters for: {0}'.format(par_name))
+    print('Using validation parameters for: {0}'.format(par_val_name))
+    print('Using test parameters for: {0}'.format(par_test_name))
+
     # load in dataset 0 params and labels
-    with open(training_dataset, 'rb') as rfp:
-        with open(training_params, 'rb') as p:
-            base_train_set = pickle.load(rfp)[0]
-            base_train_par = np.array(pickle.load(p))
-            base_train_set = [base_train_set, base_train_par]
+    with open(training_dataset, 'rb') as rfp, open(training_params, 'rb') as p:
+        base_train_set = pickle.load(rfp)[0]
+        base_train_par = np.array(pickle.load(p))
+        base_train_set = [base_train_set, base_train_par]
 
-            # set noise sample param values to zero
-            # get desired parameter
-            base_train_set[1][base_train_set[1] == None] = 0
-            for idx,i in enumerate(base_train_set[1]):
-                if i != 0:
-                    base_train_set[1][idx] = i.M() 
+        # set noise sample param values to zero
+        # get desired parameter
+        base_train_set[1][base_train_set[1] == None] = 0
+        for idx,i in enumerate(base_train_set[1]):
+            if i != 0:
+                base_train_set[1][idx] = i.M 
 
-    with open(val_dataset, 'rb') as rfp:
-        with open(val_params, 'rb') as p:
-            base_valid_set = pickle.load(rfp)[0]
-            base_valid_par = np.array(pickle.load(p))
-            base_valid_set = [base_valid_set, base_valid_par]
+    with open(val_dataset, 'rb') as rfp, open(val_params, 'rb') as p:
+        base_valid_set = pickle.load(rfp)[0]
+        base_valid_par = np.array(pickle.load(p))
+        base_valid_set = [base_valid_set, base_valid_par]
 
-            # set noise sample param values to zero
-            # get desired parameter
-            base_valid_set[1][base_valid_set[1] == None] = 0
+        # set noise sample param values to zero
+        # get desired parameter
+        base_valid_set[1][base_valid_set[1] == None] = 0
 
-            for idx,i in enumerate(base_valid_set[1]):
-                if i != 0:
-                    base_valid_set[1][idx] = i.M
+        for idx,i in enumerate(base_valid_set[1]):
+            if i != 0:
+                base_valid_set[1][idx] = i.M
 
-    with open(test_dataset, 'rb') as rfp:
-        with open(test_params, 'rb') as p:
-            base_test_set = pickle.load(rfp)[0]
-            base_test_par = np.array(pickle.load(p))
-            base_test_set = [base_test_set, base_test_par]
+    with open(test_dataset, 'rb') as rfp, open(test_params, 'rb') as p:
+        base_test_set = pickle.load(rfp)[0]
+        base_test_par = np.array(pickle.load(p))
+        base_test_set = [base_test_set, base_test_par]
 
-            # set noise sample param values to zero
-            # get desired parameter
-            base_test_set[0][base_test_set[0] == None] = 0
+        # set noise sample param values to zero
+        # get desired parameter
+        base_test_set[1][base_test_set[1] == None] = 0
 
-            for idx,i in enumerate(base_test_set[1]):
-                if i != 0:
-                    base_test_set[1][idx] = i.M
+        for idx,i in enumerate(base_test_set[1]):
+            if i != 0:
+                base_test_set[1][idx] = i.M
 
-    print(base_test_set[1])
-    sys.exit()
     # size of data sets
     size = len(base_train_set[0])
     val_size = len(base_valid_set[0])
@@ -432,8 +434,18 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
         for fn in range(1,int(Nds)):
             # load in dataset
             dataset = '{0}_{1}.sav'.format(name,fn)
-            with open(dataset, 'rb') as rfp:
-                train_set = pickle.load(rfp)
+            param_set = '{0}_{1}.sav'.format(par_name,fn)
+            with open(dataset, 'rb') as rfp, open(param_set, 'rb') as p:
+                train_set = pickle.load(rfp)[0]
+                train_par = np.array(pickle.load(p))
+                train_set = [train_set, train_par]
+
+                train_set[1][train_set[1] == None] = 0
+
+                for idx,i in enumerate(train_set[1]):
+                    if i != 0:
+                        train_set[1][idx] = i.M
+
             # check if this set needs truncating
             if need > size:
                 cut = size
@@ -444,9 +456,6 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
             aug_train_set = np.zeros(2, dtype = np.ndarray) # change to two if wanting labels as well
             # concatenate the arrays
             for i in range(2): # change to 2 if also wanting labels
-                base_train_set[i][base_train_set[i] == None] = 0
-                print(base_train_set[i])
-                sys.exit()
                 aug_train_set[i] = np.concatenate((base_train_set[i], train_set[i][:cut]), axis=0)
             # copy as base set for next loop
             base_train_set = aug_train_set
@@ -476,15 +485,36 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
         # how many images/time series needed
         need = Nval - val_size
 
+
         # loop over enough files to reach total number of time series
         for fn in range(1,int(Nds_val)):
             # load in dataset
             val_dataset = '{0}_{1}.sav'.format(val_name,fn)
+            val_params = '{0}_{1}.sav'.format(par_val_name,fn)
             test_dataset = '{0}_{1}.sav'.format(test_name,fn)
-            with open(val_dataset, 'rb') as rfp:
-                valid_set = pickle.load(rfp)
-            with open(test_dataset, 'rb') as rfp:
-                test_set = pickle.load(rfp)
+            test_params = '{0}_{1}.sav'.format(par_test_name,fn)
+            with open(val_dataset, 'rb') as rfp, open(val_params, 'rb') as p:
+                valid_set = pickle.load(rfp)[0]
+                valid_params = np.array(pickle.load(p))
+                valid_set = [valid_set,valid_params]
+
+                valid_set[1][valid_set[1] == None] = 0
+
+                for idx,i in enumerate(valid_set[1]):
+                    if i != 0:
+                        valid_set[1][idx] = i.M
+
+            with open(test_dataset, 'rb') as rfp, open(test_params, 'rb') as p:
+                test_set = pickle.load(rfp)[0]
+                test_params = np.array(pickle.load(p))
+                test_set = [test_set,test_params]
+
+                test_set[1][train_set[1] == None] = 0
+
+                for idx,i in enumerate(test_set[1]):
+                    if i != 0:
+                        test_set[1][idx] = i.M
+
             # check if this set needs truncating
             if need > val_size:
                 cut = val_size
@@ -558,8 +588,6 @@ def load_data(args, netargs):
         args.training_params, args.validation_params, args.test_params,
         args.Ntimeseries,Nval=args.Nvalidation, Ntot=args.Ntotal)
 
-    print(train_set)
-    sys.exit()
 
     start = 4096
     length = 8192
