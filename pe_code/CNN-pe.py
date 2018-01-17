@@ -368,39 +368,50 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
     print('Using validation data for: {0}'.format(val_name))
     print('Using test data for: {0}'.format(test_name))
 
-    sys.exit()
     # load in dataset 0 params and labels
     with open(training_dataset, 'rb') as rfp:
         with open(training_params, 'rb') as p:
-            base_train_set = pickle.load(rfp)[1]
+            base_train_set = pickle.load(rfp)[0]
             base_train_par = np.array(pickle.load(p))
-            base_train_set = [base_train_par, base_train_set]
+            base_train_set = [base_train_set, base_train_par]
 
             # set noise sample param values to zero
             # get desired parameter
-            base_train_set[0][base_train_set[0] == None] = 0
-            base_train_set[0][base_train_set[0] != 0] = 
+            base_train_set[1][base_train_set[1] == None] = 0
+            for idx,i in enumerate(base_train_set[1]):
+                if i != 0:
+                    base_train_set[1][idx] = i.M() 
 
     with open(val_dataset, 'rb') as rfp:
         with open(val_params, 'rb') as p:
-            base_valid_set = pickle.load(rfp)[1]
+            base_valid_set = pickle.load(rfp)[0]
             base_valid_par = np.array(pickle.load(p))
-            base_valid_set = [base_valid_par, base_valid_set]
+            base_valid_set = [base_valid_set, base_valid_par]
 
             # set noise sample param values to zero
             # get desired parameter
-            base_valid_set[0][base_valid_set[0] == None] = 0
+            base_valid_set[1][base_valid_set[1] == None] = 0
+
+            for idx,i in enumerate(base_valid_set[1]):
+                if i != 0:
+                    base_valid_set[1][idx] = i.M
 
     with open(test_dataset, 'rb') as rfp:
         with open(test_params, 'rb') as p:
-            base_test_set = pickle.load(rfp)
+            base_test_set = pickle.load(rfp)[0]
             base_test_par = np.array(pickle.load(p))
-            base_test_set = [base_test_par, base_test_set]
+            base_test_set = [base_test_set, base_test_par]
 
             # set noise sample param values to zero
             # get desired parameter
             base_test_set[0][base_test_set[0] == None] = 0
 
+            for idx,i in enumerate(base_test_set[1]):
+                if i != 0:
+                    base_test_set[1][idx] = i.M
+
+    print(base_test_set[1])
+    sys.exit()
     # size of data sets
     size = len(base_train_set[0])
     val_size = len(base_valid_set[0])
@@ -587,135 +598,6 @@ def load_data(args, netargs):
     print('Test set dimensions: {0}'.format(x_test.shape))
 
     return x_train, y_train, x_val, y_val, x_test, y_test
-
-def load_params(args,netargs):
-    """
-    Function to load training/testing/validation parameters
-
-    Parameters
-    ----------
-    args:
-        arguments
-    netargs:
-        arguments pertinant only to the neural network
-
-    Returns
-    -------
-    
-    """
-
-    # load in paramset 0
-    with open(args.training_params, 'rb') as rfp:
-        base_train_set = pickle.load(rfp)
-
-    with open(args.validation_params, 'rb') as rfp:
-        base_valid_set = pickle.load(rfp)
-
-    with open(args.test_params, 'rb') as rfp:
-        base_test_set = pickle.load(rfp)
-
-    # size of data sets
-    size = len(base_train_set[0])
-    val_size = len(base_valid_set[0])
-    # number of datasets -  depends on Nts
-    Nds = np.floor(Nts / float(size))
-    # check there are sufficient datasets
-    if not Nds <= Ntot:
-        print('Error: Insufficient datasets for number of time series')
-        exit(0)
-
-
-    # start with training set
-    # if more than the initial data set is needed
-    if Nds > 1:
-        # how many images/time series needed
-        need = Nts - size
-
-        # loop over enough files to reach total number of time series
-        for fn in range(1,int(Nds)):
-            # load in dataset
-            dataset = '{0}_{1}.sav'.format(name,fn)
-            with open(dataset, 'rb') as rfp:
-                train_set = pickle.load(rfp)
-            # check if this set needs truncating
-            if need > size:
-                cut = size
-            else:
-                cut = need
-
-            # empty arrays to populate
-            aug_train_set = np.zeros(2, dtype = np.ndarray)
-            # concatenate the arrays
-            for i in range(2):
-                aug_train_set[i] = np.concatenate((base_train_set[i], train_set[i][:cut]), axis=0)
-            # copy as base set for next loop
-            base_train_set = aug_train_set
-
-
-            need -= size
-
-    else:
-        # return truncated version of the initial data set
-        aug_train_set = np.zeros(2, dtype=np.ndarray)
-
-        for i in range(2):
-            aug_train_set[i] = base_train_set[i][:Nts]
-
-        base_train_set = aug_train_set
-
-    # validation/testing fixed at 10K
-    Nds_val = np.floor(Nval / float(val_size))
-    # check there are sufficient datasets
-    if not Nds_val <= Ntot:
-        print('Error: Insufficient datasets for number of time series')
-        exit(0)
-
-    if Nds_val > 1:
-        # how many images/time series needed
-        need = Nval - val_size
-
-        # loop over enough files to reach total number of time series
-        for fn in range(1,int(Nds_val)):
-            # load in dataset
-            val_dataset = '{0}_{1}.sav'.format(val_name,fn)
-            test_dataset = '{0}_{1}.sav'.format(test_name,fn)
-            with open(val_dataset, 'rb') as rfp:
-                valid_set = pickle.load(rfp)
-            with open(test_dataset, 'rb') as rfp:
-                test_set = pickle.load(rfp)
-            # check if this set needs truncating
-            if need > val_size:
-                cut = val_size
-            else:
-                cut = need
-
-            # empty arrays to populate
-            aug_valid_set = np.zeros(2, dtype = np.ndarray)
-            aug_test_set = np.zeros(2, dtype=np.ndarray)
-            # concatenate the arrays
-            for i in range(2):
-                aug_valid_set[i] = np.concatenate((base_valid_set[i], valid_set[i][:cut]), axis=0)
-                aug_test_set[i] = np.concatenate((base_test_set[i], test_set[i][:cut]), axis=0)
-
-            # copy as base set for next loop
-            base_valid_set = aug_valid_set
-            base_test_set = aug_test_set
-
-            need -= val_size
-
-    else:
-        # return truncated version of the initial data set
-        aug_valid_set = np.zeros(2, dtype=np.ndarray)
-        aug_test_set = np.zeros(2, dtype=np.ndarray)
-
-        for i in range(2):
-            aug_valid_set[i] = base_valid_set[i][:Nval]
-            aug_test_set[i] = base_test_set[i][:Nval]
-
-        base_valid_set = aug_valid_set
-        base_test_set = aug_test_set
-
-    return base_train_set, base_valid_set, base_test_set
 
 def main(args):
     # get arguments
