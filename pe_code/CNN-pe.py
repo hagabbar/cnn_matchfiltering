@@ -24,7 +24,7 @@ from math import exp, log
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from keras.models import load_model
 
-#from clr_callback import *
+from clr_callback import *
 from sklearn import preprocessing
 
 from tensorflow.python.client import device_lib
@@ -197,7 +197,7 @@ def choose_optimizer(args):
         return Nadam(lr=lr, beta_1=args.beta_1, beta_2=args.beta_2, epsilon=args.epsilon, schedule_decay=args.decay)
 
 
-def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test, y_test, samp_weights):
+def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test, y_test, samp_weights=None):
 
     model = Sequential()
 
@@ -322,7 +322,7 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
                          epochs=args.n_epochs,
                          batch_size=args.batch_size,
                          #class_weight=netargs.class_weight,
-                         sample_weight=samp_weights,
+                         #sample_weight=samp_weights,
                          validation_data=(x_val, y_val),
                          shuffle=True,
                          verbose=1,
@@ -332,7 +332,7 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
                          epochs=args.n_epochs,
                          batch_size=args.batch_size,
                          #class_weight=netargs.class_weight,
-                         sample_weight=samp_weights,
+                         #sample_weight=samp_weights,
                          validation_data=(x_val, y_val),
                          shuffle=True,
                          verbose=1,
@@ -615,11 +615,14 @@ def load_data(args, netargs):
             test_set[0][i] = preprocessing.normalize(test_set[0][i])
 
     x_train = (train_set[0].reshape(Ntrain, channels, xshape, yshape))
-    y_train = to_categorical(train_set[1], num_classes=netargs.num_classes)
+    #y_train = to_categorical(train_set[1], num_classes=netargs.num_classes)
+    y_train = train_set[1]
     x_val = (valid_set[0].reshape(valid_set[0].shape[0], channels, xshape, yshape))
-    y_val = to_categorical(valid_set[1], num_classes=netargs.num_classes)
+    #y_val = to_categorical(valid_set[1], num_classes=netargs.num_classes)
+    y_val = valid_set[1]
     x_test = (test_set[0].reshape(test_set[0].shape[0], channels, xshape, yshape))
-    y_test = to_categorical(test_set[1], num_classes=netargs.num_classes)
+    #y_test = to_categorical(test_set[1], num_classes=netargs.num_classes)
+    y_test = test_set[1]
 
     print('Traning set dimensions: {0}'.format(x_train.shape))
     print('Validation set dimensions: {0}'.format(x_val.shape))
@@ -687,7 +690,7 @@ def main(args):
 
     # train and test network
     model, hist, eval_results, preds = network(args, netargs, shape, out,
-                                               x_train, y_train, x_val, y_val, x_test, y_test, final_tr_params)
+                                               x_train, y_train, x_val, y_val, x_test, y_test) # add final_tr_params at end if weighitng on params
 
 
     with open('{0}/SNR{1}/run{2}/args.pkl'.format(args.outdir, args.SNR, Nrun), "wb") as wfp:
@@ -699,10 +702,21 @@ def main(args):
     #shutil.copy('./runCNN.sh', '{0}/SNR{1}/run{2}'.format(args.outdir, args.SNR,Nrun))
 
     model.save('{0}/SNR{1}/run{2}/nn_model.hdf5'.format(args.outdir,args.SNR,Nrun))
-    np.save('{0}/SNR{1}/run{2}/targets.npy'.format(args.outdir,args.SNR,Nrun),y_test)
-    np.save('{0}/SNR{1}/run{2}/preds.npy'.format(args.outdir,args.SNR,Nrun), preds)
-    np.save('{0}/SNR{1}/run{2}/history.npy'.format(args.outdir,args.SNR,Nrun), hist.history)
-    np.save('{0}/SNR{1}/run{2}/test_results.npy'.format(args.outdir,args.SNR,Nrun),eval_results)
+
+    with open('{0}/SNR{1}/run{2}/targets.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
+        pickle.dump(y_test, output_file)
+    with open('{0}/SNR{1}/run{2}/preds.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
+        pickle.dump(preds, output_file)
+    with open('{0}/SNR{1}/run{2}/history.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
+        pickle.dump(hist.history, output_file)
+    with open('{0}/SNR{1}/run{2}/test_results.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
+        pickle.dump(eval_results, output_file)
+
+    # np.save does not work with python 2.7.5
+    #np.save('{0}/SNR{1}/run{2}/targets.npy'.format(args.outdir,args.SNR,Nrun),np.array(y_test))
+    #np.save('{0}/SNR{1}/run{2}/preds.npy'.format(args.outdir,args.SNR,Nrun), preds)
+    #np.save('{0}/SNR{1}/run{2}/history.npy'.format(args.outdir,args.SNR,Nrun), hist.history)
+    #np.save('{0}/SNR{1}/run{2}/test_results.npy'.format(args.outdir,args.SNR,Nrun),eval_results)
 
     print('Results saved at: {0}/SNR{1}/run{2}'.format(args.outdir,args.SNR,Nrun))
 

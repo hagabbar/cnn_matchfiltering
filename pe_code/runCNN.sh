@@ -30,7 +30,7 @@ training_params=/home/chrism/deepdata_bbh/BBH_training_1s_8192Hz_10Ksamp_25n_iSN
 test_params=/home/chrism/deepdata_bbh/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_params_0.sav
 val_params=/home/chrism/deepdata_bbh/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_params_0.sav
 
-Nts=10000               # Number of time series
+Nts=100000               # Number of time series
 Nval=1000              # Number of time series for validation/testing
 Ntot=10
 
