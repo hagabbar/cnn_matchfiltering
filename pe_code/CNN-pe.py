@@ -368,15 +368,15 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
 
     print('Using data located in: {0}'.format(datapath))
     training_datasets = sorted(glob.glob('{0}/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, training_dtype)))
-    validation_datasets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
-    test_datasets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
+    validation_datasets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
+    test_datasets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
     print(training_datasets, validation_datasets, test_datasets)
 
 
     print('Using data located in: {0}'.format(datapath))
     training_paramsets = sorted(glob.glob('{0}/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, training_dtype)))
-    validation_paramsets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
-    test_paramsets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
+    validation_paramsets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
+    test_paramsets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
     print(training_paramsets, validation_paramsets, test_paramsets)
 
     # load in dataset 0 params and labels
@@ -652,7 +652,7 @@ def load_data(args, netargs):
     print('Validation set dimensions: {0}'.format(x_val.shape))
     print('Test set dimensions: {0}'.format(x_test.shape))
 
-    return x_train, y_train, x_val, y_val, x_test, y_test
+    return x_train, np.round_(y_train), x_val, np.round_(y_val), x_test, np.round_(y_test)
 
 def main(args):
     # get arguments

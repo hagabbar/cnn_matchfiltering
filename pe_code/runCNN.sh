@@ -23,14 +23,16 @@ export CUDA_VISIBLE_DEVICES=1
 
 # Location and name of training/validation/test sets:
 # For use on LHO
-#training_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_8seed_ts_0.sav
-#val_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_18seed_ts_0.sav
-#test_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_208seed_ts_0.sav
-#training_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_8seed_params_0.sav
-#test_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_208seed_params_0.sav
-#val_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_18seed_params_0.sav
+datapath=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data
+training_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_8seed_ts_0.sav
+val_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_18seed_ts_0.sav
+test_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_208seed_ts_0.sav
+training_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_8seed_params_0.sav
+test_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_208seed_params_0.sav
+val_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_18seed_params_0.sav
 
 # For use on LLO
+#datapath=/home/hunter.gabbard/CBC/cnn_matchfiltering/data
 #training_dataset=/home/hunter.gabbard/CBC/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_8seed_ts_0.sav
 #val_dataset=/home/hunter.gabbard/CBC/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_18seed_ts_0.sav
 #test_dataset=/home/hunter.gabbard/CBC/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_150seed_ts_0.sav
@@ -40,16 +42,16 @@ export CUDA_VISIBLE_DEVICES=1
 
 
 # For use on deimos
-datapath=/home/chrism/deepdata_bbh
-training_dataset=/home/chrism/deepdata_bbh/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_ts_0.sav
-val_dataset=/home/chrism/deepdata_bbh/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${3}_1seed_ts_0.sav
-test_dataset=/home/chrism/deepdata_bbh/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${3}_1seed_ts_0.sav
-training_params=/home/chrism/deepdata_bbh/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_params_0.sav
-test_params=/home/chrism/deepdata_bbh/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_params_0.sav
-val_params=/home/chrism/deepdata_bbh/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_params_0.sav
+#datapath=/home/chrism/deepdata_bbh
+#training_dataset=/home/chrism/deepdata_bbh/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_ts_0.sav
+#val_dataset=/home/chrism/deepdata_bbh/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${3}_1seed_ts_0.sav
+#test_dataset=/home/chrism/deepdata_bbh/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${3}_1seed_ts_0.sav
+#training_params=/home/chrism/deepdata_bbh/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_params_0.sav
+#test_params=/home/chrism/deepdata_bbh/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_params_0.sav
+#val_params=/home/chrism/deepdata_bbh/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_params_0.sav
 
-Nts=50000               # Number of time series
-Nval=1000              # Number of time series for validation/testing
+Nts=100000               # Number of time series
+Nval=10000              # Number of time series for validation/testing
 Ntot=10
 
 # Learning constraints:
