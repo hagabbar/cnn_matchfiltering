@@ -7,7 +7,7 @@
 #export LIBRARY_PATH=$LIBRARY_PATH:/home/2136420/theanoenv/lib
 #export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/2136420/theanoenv/lib
 
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=1
 
 #####################
 # Running the network
@@ -23,16 +23,26 @@ export CUDA_VISIBLE_DEVICES=0
 
 # Location and name of training/validation/test sets:
 # set for use on deimos
-training_dataset=/home/chrism/deepdata_bbh/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_ts_0.sav
-val_dataset=/home/chrism/deepdata_bbh/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${3}_1seed_ts_0.sav
-test_dataset=/home/chrism/deepdata_bbh/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${3}_1seed_ts_0.sav
-training_params=/home/chrism/deepdata_bbh/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_params_0.sav
-test_params=/home/chrism/deepdata_bbh/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_params_0.sav
-val_params=/home/chrism/deepdata_bbh/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_params_0.sav
+#training_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_8seed_ts_0.sav
+#val_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_18seed_ts_0.sav
+#test_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_208seed_ts_0.sav
+#training_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_8seed_params_0.sav
+#test_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_208seed_params_0.sav
+#val_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_18seed_params_0.sav
 
-Nts=100000               # Number of time series
-Nval=1000              # Number of time series for validation/testing
-Ntot=10
+
+datapath=/home/michael.williams/glasgow/bbh_data
+training_dataset=/home/michael.williams/glasgow/bbh_data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_67seed_ts_0.sav
+val_dataset=/home/michael.williams/glasgow/bbh_data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_18seed_ts_0.sav
+test_dataset=/home/michael.williams/glasgow/bbh_data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_87seed_ts_0.sav
+training_params=/home/michael.williams/glasgow/bbh_data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_67seed_params_0.sav
+test_params=/home/michael.williams/glasgow/bbh_data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_87seed_params_0.sav
+val_params=/home/michael.williams/glasgow/bbh_data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_18seed_params_0.sav
+
+
+Nts=400000               # Number of time series
+Nval=40000              # Number of time series for validation/testing
+Ntot=40
 
 # Learning constraints:
 learning_rate=0.001
@@ -41,7 +51,7 @@ decay=0.0
 stepsize=1000
 momentum=0.9
 n_epochs=200
-batch_size=1000
+batch_size=20
 patience=10
 LRpatience=5
 
@@ -78,6 +88,7 @@ functions="elu,elu,elu,elu,elu,elu,elu,elu,elu,linear"
 
 ./CNN-pe.py -SNR=${1} -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
  -Trd=$training_dataset -Vald=$val_dataset -Tsd=$test_dataset -bs=$batch_size\
+ --training_dtype=${2} --testing_dtype=${3} --datapath=$datapath \
  -Trp=$training_params -Valp=$val_params -Tsp=$test_params \
  -opt=$opt -lr=$learning_rate -mlr=$max_learning_rate -NE=$n_epochs -dy=$decay \
  -ss=$stepsize -mn=$momentum --nesterov=$nesterov --rho=$rho --epsilon=$epsilon \

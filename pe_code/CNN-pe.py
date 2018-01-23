@@ -59,6 +59,12 @@ def parser():
     # arguments for data
     parser.add_argument('-SNR', '--SNR', type=int,
                         help='')
+    parser.add_argument('-trdt', '--training_dtype', type=str,
+                        help='')
+    parser.add_argument('-tsdt', '--testing_dtype', type=str,
+                        help='')
+    parser.add_argument('--datapath', type=str,
+                        help='')
     parser.add_argument('-Nts', '--Ntimeseries', type=int, default=10000,
                         help='number of time series for training')
     #parser.add_argument('-ds', '--set-seed', type=str,
@@ -351,7 +357,7 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
     return model, hist, eval_results, preds
 
 
-def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_params, val_params, test_params, Nts, Nval = 10000, Ntot = 10):
+def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval = 10000, Ntot = 30):
     """
     shorten and concatenate data
     :param initial_dataset: first dataset in the set
@@ -360,23 +366,21 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
     :return:
     """
 
-    # get core name of dataset without number (_0)
-    name = training_dataset.split('_0')[0]
-    val_name = val_dataset.split('_0')[0]
-    test_name = test_dataset.split('_0')[0]
-    print('Using training data for: {0}'.format(name))
-    print('Using validation data for: {0}'.format(val_name))
-    print('Using test data for: {0}'.format(test_name))
+    print('Using data located in: {0}'.format(datapath))
+    training_datasets = sorted(glob.glob('{0}/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, training_dtype)))
+    validation_datasets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
+    test_datasets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
+    print(training_datasets, validation_datasets, test_datasets)
 
-    par_name = training_params.split('_0')[0]
-    par_val_name = val_params.split('_0')[0]
-    par_test_name = test_params.split('_0')[0]
-    print('Using training parameters for: {0}'.format(par_name))
-    print('Using validation parameters for: {0}'.format(par_val_name))
-    print('Using test parameters for: {0}'.format(par_test_name))
+
+    print('Using data located in: {0}'.format(datapath))
+    training_paramsets = sorted(glob.glob('{0}/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, training_dtype)))
+    validation_paramsets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
+    test_paramsets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
+    print(training_paramsets, validation_paramsets, test_paramsets)
 
     # load in dataset 0 params and labels
-    with open(training_dataset, 'rb') as rfp, open(training_params, 'rb') as p:
+    with open(training_datasets[0], 'rb') as rfp, open(training_paramsets[0], 'rb') as p:
         base_train_set = pickle.load(rfp)[0]
         base_train_par = np.array(pickle.load(p))
         base_train_set = [base_train_set, base_train_par]
@@ -388,7 +392,7 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
             if i != 0:
                 base_train_set[1][idx] = i.M 
 
-    with open(val_dataset, 'rb') as rfp, open(val_params, 'rb') as p:
+    with open(validation_datasets[0], 'rb') as rfp, open(validation_paramsets[0], 'rb') as p:
         base_valid_set = pickle.load(rfp)[0]
         base_valid_par = np.array(pickle.load(p))
         base_valid_set = [base_valid_set, base_valid_par]
@@ -401,7 +405,7 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
             if i != 0:
                 base_valid_set[1][idx] = i.M
 
-    with open(test_dataset, 'rb') as rfp, open(test_params, 'rb') as p:
+    with open(test_datasets[0], 'rb') as rfp, open(test_paramsets[0], 'rb') as p:
         base_test_set = pickle.load(rfp)[0]
         base_test_par = np.array(pickle.load(p))
         base_test_set = [base_test_set, base_test_par]
@@ -415,10 +419,11 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
                 base_test_set[1][idx] = i.M
 
     # size of data sets
-    size = len(base_train_set[0])
-    val_size = len(base_valid_set[0])
+    size = int(1e4)
+    val_size = int(1e4)
     # number of datasets -  depends on Nts
     Nds = np.floor(Nts / float(size))
+    print(Nds)
     # check there are sufficient datasets
     if not Nds <= Ntot:
         print('Error: Insufficient datasets for number of time series')
@@ -431,11 +436,9 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
         need = Nts - size
 
         # loop over enough files to reach total number of time series
-        for fn in range(1,int(Nds)):
-            # load in dataset
-            dataset = '{0}_{1}.sav'.format(name,fn)
-            param_set = '{0}_{1}.sav'.format(par_name,fn)
-            with open(dataset, 'rb') as rfp, open(param_set, 'rb') as p:
+        for ps_idx,ds in enumerate(training_datasets[1:int(Nds)]):
+            print(ds)
+            with open(ds, 'rb') as rfp, open(training_paramsets[ps_idx], 'rb') as p:
                 train_set = pickle.load(rfp)[0]
                 train_par = np.array(pickle.load(p))
                 train_set = [train_set, train_par]
@@ -487,13 +490,8 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
 
 
         # loop over enough files to reach total number of time series
-        for fn in range(1,int(Nds_val)):
-            # load in dataset
-            val_dataset = '{0}_{1}.sav'.format(val_name,fn)
-            val_params = '{0}_{1}.sav'.format(par_val_name,fn)
-            test_dataset = '{0}_{1}.sav'.format(test_name,fn)
-            test_params = '{0}_{1}.sav'.format(par_test_name,fn)
-            with open(val_dataset, 'rb') as rfp, open(val_params, 'rb') as p:
+        for Vds, Vps, Tds, Tps in zip(validation_datasets[1:int(Nds_val)], validation_paramsets[1:int(Nds_val)], test_datasets[1:int(Nds_val)], test_paramsets[1:int(Nds_val)]):
+            with open(Vds, 'rb') as rfp, open(Vps, 'rb') as p:
                 valid_set = pickle.load(rfp)[0]
                 valid_params = np.array(pickle.load(p))
                 valid_set = [valid_set,valid_params]
@@ -504,7 +502,7 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, training_p
                     if i != 0:
                         valid_set[1][idx] = i.M
 
-            with open(test_dataset, 'rb') as rfp, open(test_params, 'rb') as p:
+            with open(Tds, 'rb') as rfp, open(Tps, 'rb') as p:
                 test_set = pickle.load(rfp)[0]
                 test_params = np.array(pickle.load(p))
                 test_set = [test_set,test_params]
@@ -583,10 +581,8 @@ def load_data(args, netargs):
     :return: tuple of theano data set
     """
 
-    train_set, valid_set, test_set = concatenate_datasets(
-        args.training_dataset, args.validation_dataset, args.test_dataset,
-        args.training_params, args.validation_params, args.test_params,
-        args.Ntimeseries,Nval=args.Nvalidation, Ntot=args.Ntotal)
+    train_set, valid_set, test_set = concatenate_datasets(args.datapath, args.SNR, args.training_dtype,
+                                                          args.testing_dtype, args.Ntimeseries, args.Nvalidation, args.Ntotal)
 
 
     start = 4096
