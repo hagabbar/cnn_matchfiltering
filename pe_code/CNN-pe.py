@@ -368,15 +368,15 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
 
     print('Using data located in: {0}'.format(datapath))
     training_datasets = sorted(glob.glob('{0}/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, training_dtype)))
-    validation_datasets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
-    test_datasets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
+    validation_datasets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
+    test_datasets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
     print(training_datasets, validation_datasets, test_datasets)
 
 
     print('Using data located in: {0}'.format(datapath))
     training_paramsets = sorted(glob.glob('{0}/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, training_dtype)))
-    validation_paramsets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
-    test_paramsets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
+    validation_paramsets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
+    test_paramsets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
     print(training_paramsets, validation_paramsets, test_paramsets)
 
     # load in dataset 0 params and labels
@@ -387,10 +387,15 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
 
         # set noise sample param values to zero
         # get desired parameter
-        base_train_set[1][base_train_set[1] == None] = 0
+        base_train_new = False
         for idx,i in enumerate(base_train_set[1]):
-            if i != 0:
-                base_train_set[1][idx] = i.M 
+            if i != None and not base_train_new:
+                base_train_new = [[base_train_set[0][idx]],[i.M]]
+            elif i != None and base_train_new:
+                base_train_new[1].append(i.M)
+                base_train_new[0].append(base_train_set[0][idx])
+        base_train_set = [np.array(base_train_new[0]),np.array(base_train_new[1])]  
+
 
     with open(validation_datasets[0], 'rb') as rfp, open(validation_paramsets[0], 'rb') as p:
         base_valid_set = pickle.load(rfp)[0]
@@ -399,11 +404,14 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
 
         # set noise sample param values to zero
         # get desired parameter
-        base_valid_set[1][base_valid_set[1] == None] = 0
-
+        base_valid_new = False
         for idx,i in enumerate(base_valid_set[1]):
-            if i != 0:
-                base_valid_set[1][idx] = i.M
+            if i != None and not base_valid_new:
+                base_valid_new = [[base_valid_set[0][idx]],[i.M]]
+            elif i != None and base_valid_new:
+                base_valid_new[1].append(i.M)
+                base_valid_new[0].append(base_valid_set[0][idx])
+        base_valid_set = [np.array(base_valid_new[0]),np.array(base_valid_new[1])]
 
     with open(test_datasets[0], 'rb') as rfp, open(test_paramsets[0], 'rb') as p:
         base_test_set = pickle.load(rfp)[0]
@@ -412,11 +420,15 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
 
         # set noise sample param values to zero
         # get desired parameter
-        base_test_set[1][base_test_set[1] == None] = 0
-
+        base_test_new = False
         for idx,i in enumerate(base_test_set[1]):
-            if i != 0:
-                base_test_set[1][idx] = i.M
+            if i != None and not base_test_new:
+                base_test_new = [[base_test_set[0][idx]],[i.M]]
+            elif i != None and base_test_new:
+                base_test_new[1].append(i.M)
+                base_test_new[0].append(base_test_set[0][idx])
+        base_test_set = [np.array(base_test_new[0]),np.array(base_test_new[1])]
+
 
     # size of data sets
     size = int(1e4)
@@ -443,11 +455,17 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
                 train_par = np.array(pickle.load(p))
                 train_set = [train_set, train_par]
 
-                train_set[1][train_set[1] == None] = 0
 
+                # set noise sample param values to zero
+                # get desired parameter
+                train_new = False
                 for idx,i in enumerate(train_set[1]):
-                    if i != 0:
-                        train_set[1][idx] = i.M
+                    if i != None and not train_new:
+                        train_new = [[train_set[0][idx]],[i.M]]
+                    elif i != None and train_new:
+                        train_new[1].append(i.M)
+                        train_new[0].append(train_set[0][idx])
+                train_set = [np.array(train_new[0]),np.array(train_new[1])]
 
             # check if this set needs truncating
             if need > size:
@@ -496,22 +514,32 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
                 valid_params = np.array(pickle.load(p))
                 valid_set = [valid_set,valid_params]
 
-                valid_set[1][valid_set[1] == None] = 0
-
+                # set noise sample param values to zero
+                # get desired parameter
+                valid_new = False
                 for idx,i in enumerate(valid_set[1]):
-                    if i != 0:
-                        valid_set[1][idx] = i.M
+                    if i != None and not valid_new:
+                        valid_new = [[valid_set[0][idx]],[i.M]]
+                    elif i != None and valid_new:
+                        valid_new[1].append(i.M)
+                        valid_new[0].append(valid_set[0][idx])
+                valid_set = [np.array(valid_new[0]),np.array(valid_new[1])]
 
             with open(Tds, 'rb') as rfp, open(Tps, 'rb') as p:
                 test_set = pickle.load(rfp)[0]
                 test_params = np.array(pickle.load(p))
                 test_set = [test_set,test_params]
 
-                test_set[1][train_set[1] == None] = 0
-
+                # set noise sample param values to zero
+                # get desired parameter
+                test_new = False
                 for idx,i in enumerate(test_set[1]):
-                    if i != 0:
-                        test_set[1][idx] = i.M
+                    if i != None and not test_new:
+                        test_new = [[test_set[0][idx]],[i.M]]
+                    elif i != None and test_new:
+                        test_new[1].append(i.M)
+                        test_new[0].append(test_set[0][idx])
+                test_set = [np.array(test_new[0]),np.array(test_new[1])]
 
             # check if this set needs truncating
             if need > val_size:
