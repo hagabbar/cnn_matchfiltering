@@ -390,9 +390,9 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
         base_train_new = False
         for idx,i in enumerate(base_train_set[1]):
             if i != None and not base_train_new:
-                base_train_new = [[base_train_set[0][idx]],[i.M]]
+                base_train_new = [[base_train_set[0][idx]],[i.mc]]
             elif i != None and base_train_new:
-                base_train_new[1].append(i.M)
+                base_train_new[1].append(i.mc)
                 base_train_new[0].append(base_train_set[0][idx])
         base_train_set = [np.array(base_train_new[0]),np.array(base_train_new[1])]  
 
@@ -407,9 +407,9 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
         base_valid_new = False
         for idx,i in enumerate(base_valid_set[1]):
             if i != None and not base_valid_new:
-                base_valid_new = [[base_valid_set[0][idx]],[i.M]]
+                base_valid_new = [[base_valid_set[0][idx]],[i.mc]]
             elif i != None and base_valid_new:
-                base_valid_new[1].append(i.M)
+                base_valid_new[1].append(i.mc)
                 base_valid_new[0].append(base_valid_set[0][idx])
         base_valid_set = [np.array(base_valid_new[0]),np.array(base_valid_new[1])]
 
@@ -423,9 +423,9 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
         base_test_new = False
         for idx,i in enumerate(base_test_set[1]):
             if i != None and not base_test_new:
-                base_test_new = [[base_test_set[0][idx]],[i.M]]
+                base_test_new = [[base_test_set[0][idx]],[i.mc]]
             elif i != None and base_test_new:
-                base_test_new[1].append(i.M)
+                base_test_new[1].append(i.mc)
                 base_test_new[0].append(base_test_set[0][idx])
         base_test_set = [np.array(base_test_new[0]),np.array(base_test_new[1])]
 
@@ -461,9 +461,9 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
                 train_new = False
                 for idx,i in enumerate(train_set[1]):
                     if i != None and not train_new:
-                        train_new = [[train_set[0][idx]],[i.M]]
+                        train_new = [[train_set[0][idx]],[i.mc]]
                     elif i != None and train_new:
-                        train_new[1].append(i.M)
+                        train_new[1].append(i.mc)
                         train_new[0].append(train_set[0][idx])
                 train_set = [np.array(train_new[0]),np.array(train_new[1])]
 
@@ -519,9 +519,9 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
                 valid_new = False
                 for idx,i in enumerate(valid_set[1]):
                     if i != None and not valid_new:
-                        valid_new = [[valid_set[0][idx]],[i.M]]
+                        valid_new = [[valid_set[0][idx]],[i.mc]]
                     elif i != None and valid_new:
-                        valid_new[1].append(i.M)
+                        valid_new[1].append(i.mc)
                         valid_new[0].append(valid_set[0][idx])
                 valid_set = [np.array(valid_new[0]),np.array(valid_new[1])]
 
@@ -535,9 +535,9 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
                 test_new = False
                 for idx,i in enumerate(test_set[1]):
                     if i != None and not test_new:
-                        test_new = [[test_set[0][idx]],[i.M]]
+                        test_new = [[test_set[0][idx]],[i.mc]]
                     elif i != None and test_new:
-                        test_new[1].append(i.M)
+                        test_new[1].append(i.mc)
                         test_new[0].append(test_set[0][idx])
                 test_set = [np.array(test_new[0]),np.array(test_new[1])]
 
@@ -652,7 +652,7 @@ def load_data(args, netargs):
     print('Validation set dimensions: {0}'.format(x_val.shape))
     print('Test set dimensions: {0}'.format(x_test.shape))
 
-    return x_train, np.round_(y_train), x_val, np.round_(y_val), x_test, np.round_(y_test)
+    return x_train, y_train, x_val, y_val, x_test, y_test
 
 def main(args):
     # get arguments

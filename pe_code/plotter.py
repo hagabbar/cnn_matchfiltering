@@ -25,8 +25,8 @@ class PEresults:
 # directory to use
 dir = './history'
 dir2 = './dgx_history'
-snr = 8
-runs = [10]
+snr = 10
+runs = [8]
 runs2 = [3,4]
 
 for i,r in enumerate(runs):

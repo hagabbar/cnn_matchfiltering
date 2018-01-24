@@ -21,15 +21,20 @@ export CUDA_VISIBLE_DEVICES=1
 # - metricmass
 # - astromass
 
+# snr 10
+seed_nums=("10" "20" "150")
+# snr 8
+#seed_nums=("8" "18" "208")
+
 # Location and name of training/validation/test sets:
 # For use on LHO
 datapath=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data
-training_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_8seed_ts_0.sav
-val_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_18seed_ts_0.sav
-test_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_208seed_ts_0.sav
-training_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_8seed_params_0.sav
-test_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_208seed_params_0.sav
-val_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_18seed_params_0.sav
+training_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_$seed_nums[0]seed_ts_0.sav
+val_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_$seed_nums[1]seed_ts_0.sav
+test_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_$seed_nums[2]seed_ts_0.sav
+training_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_$seed_nums[0]seed_params_0.sav
+test_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_$seed_nums[2]seed_params_0.sav
+val_params=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_$seed_nums[1]seed_params_0.sav
 
 # For use on LLO
 #datapath=/home/hunter.gabbard/CBC/cnn_matchfiltering/data
@@ -61,7 +66,7 @@ decay=0.0
 stepsize=1000
 momentum=0.9
 n_epochs=200
-batch_size=1000
+batch_size=64
 patience=10
 LRpatience=5
 
@@ -84,8 +89,9 @@ beta_2=0.999
 # o classification -> 4
 ###########################################
 
+# original classification network
 features="1,1,1,1,1,1,1,1,0,4"
-nkerns="8,16,16,32,64,64,128,128,64,2"
+nkerns="8,16,16,32,64,64,128,128,64,1"
 filter_size="1-32,1-16,1-16,1-16,1-8,1-8,1-4,1-4"
 filter_stride="1-1,1-1,1-1,1-1,1-1,1-1,1-1,1-1,1-1"
 dilation="1-1,1-1,1-1,1-1,1-1,1-1,1-1,1-1"
@@ -95,6 +101,19 @@ pool_stride="1-8,1-1,1-1,1-1,1-6,1-1,1-1,1-4"
 dropout="0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0"
 
 functions="elu,elu,elu,elu,elu,elu,elu,elu,elu,linear"
+
+# reduced network
+#features="1,1,0,4"
+#nkerns="8,16,64,1"
+#filter_size="1-32,1-16"
+#filter_stride="1-1,1-1"
+#dilation="1-1,1-1"
+#pooling="1,0"
+#pool_size="1-8,1-1"
+#pool_stride="1-8,1-1"
+#dropout="0.0,0.0,0.5,0.0"
+
+#functions="relu,relu,relu,linear"
 
 ./CNN-pe.py -SNR=${1} -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
  -Trd=$training_dataset -Vald=$val_dataset -Tsd=$test_dataset -bs=$batch_size\
