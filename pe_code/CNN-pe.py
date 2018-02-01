@@ -315,12 +315,12 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
 
     clr = CyclicLR(base_lr=args.lr, max_lr=args.max_learning_rate, step_size=args.stepsize)
 
-    earlyStopping = EarlyStopping(monitor='val_acc', patience=args.patience, verbose=0, mode='auto')
+    earlyStopping = EarlyStopping(monitor='val_loss', patience=args.patience, verbose=0, mode='auto')
 
-    redLR = ReduceLROnPlateau(monitor='val_acc', factor=0.1, patience=args.LRpatience, verbose=0, mode='auto',
+    redLR = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=args.LRpatience, verbose=0, mode='auto',
                               epsilon=0.0001, cooldown=0, min_lr=0)
 
-    modelCheck = ModelCheckpoint('{0}/best_weights.hdf5'.format(outdir), monitor='val_acc', verbose=0, save_best_only=True,save_weights_only=True, mode='auto', period=0)
+    modelCheck = ModelCheckpoint('{0}/best_weights.hdf5'.format(outdir), monitor='val_loss', verbose=0, save_best_only=True,save_weights_only=True, mode='auto', period=0)
 
     print('Fitting model...')
     if args.lr != args.max_learning_rate:
@@ -652,7 +652,7 @@ def load_data(args, netargs):
     print('Validation set dimensions: {0}'.format(x_val.shape))
     print('Test set dimensions: {0}'.format(x_test.shape))
 
-    return x_train, y_train, x_val, y_val, x_test, y_test
+    return x_train, np.log(y_train), x_val, np.log(y_val), x_test, np.log(y_test)
 
 def main(args):
     # get arguments
@@ -728,9 +728,9 @@ def main(args):
     model.save('{0}/SNR{1}/run{2}/nn_model.hdf5'.format(args.outdir,args.SNR,Nrun))
 
     with open('{0}/SNR{1}/run{2}/targets.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
-        pickle.dump(y_test, output_file)
+        pickle.dump(np.exp(y_test), output_file)
     with open('{0}/SNR{1}/run{2}/preds.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
-        pickle.dump(preds, output_file)
+        pickle.dump(np.exp(preds), output_file)
     with open('{0}/SNR{1}/run{2}/history.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
         pickle.dump(hist.history, output_file)
     with open('{0}/SNR{1}/run{2}/test_results.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
