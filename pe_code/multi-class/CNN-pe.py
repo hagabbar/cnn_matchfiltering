@@ -169,7 +169,7 @@ def parser():
 class network_args:
     def __init__(self, args):
         self.features = np.array(args.features.split(','))
-        self.num_classes = 1 
+        self.num_classes = 3 
         self.class_weight = {0:args.noise_weight, 1:args.sig_weight}
         self.Nfilters = np.array(args.nfilters.split(",")).astype('int')
         self.kernel_size = np.array([i.split("-") for i in np.array(args.filter_size.split(","))]).astype('int')
@@ -303,7 +303,7 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
     print('Compiling model...')
 
     model.compile(
-        loss="mean_squared_error",
+        loss="logcosh",
         optimizer=optimizer,
         metrics=["accuracy", "categorical_crossentropy"]
     )
@@ -366,18 +366,19 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
     :return:
     """
 
+
     print('Using data located in: {0}'.format(datapath))
     training_datasets = sorted(glob.glob('{0}/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, training_dtype)))
     validation_datasets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
     test_datasets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_ts_*.sav'.format(datapath, snr, testing_dtype)))
-    print(training_datasets, validation_datasets, test_datasets)
+    #print(training_datasets, validation_datasets, test_datasets)
 
 
     print('Using data located in: {0}'.format(datapath))
     training_paramsets = sorted(glob.glob('{0}/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, training_dtype)))
     validation_paramsets = sorted(glob.glob('{0}/BBH_validation_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
     test_paramsets = sorted(glob.glob('{0}/BBH_testing_1s_8192Hz_10Ksamp_1n_iSNR{1}_Hdet_{2}_*seed_params_*.sav'.format(datapath, snr, testing_dtype)))
-    print(training_paramsets, validation_paramsets, test_paramsets)
+    #print(training_paramsets, validation_paramsets, test_paramsets)
 
     # load in dataset 0 params and labels
     with open(training_datasets[0], 'rb') as rfp, open(training_paramsets[0], 'rb') as p:
@@ -390,12 +391,11 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
         base_train_new = False
         for idx,i in enumerate(base_train_set[1]):
             if i != None and not base_train_new:
-                base_train_new = [[base_train_set[0][idx]],[i.mc]]
+                base_train_new = [[base_train_set[0][idx]],[np.array([i.mc,i.m1,i.m2])]]
             elif i != None and base_train_new:
-                base_train_new[1].append(i.mc)
+                base_train_new[1].append(np.array([i.mc,i.m1,i.m2]))
                 base_train_new[0].append(base_train_set[0][idx])
-        base_train_set = [np.array(base_train_new[0]),np.array(base_train_new[1])]  
-
+        base_train_set = [np.array(base_train_new[0]),np.array(base_train_new[1])]
 
     with open(validation_datasets[0], 'rb') as rfp, open(validation_paramsets[0], 'rb') as p:
         base_valid_set = pickle.load(rfp)[0]
@@ -407,9 +407,9 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
         base_valid_new = False
         for idx,i in enumerate(base_valid_set[1]):
             if i != None and not base_valid_new:
-                base_valid_new = [[base_valid_set[0][idx]],[i.mc]]
+                base_valid_new = [[base_valid_set[0][idx]],[np.array([i.mc,i.m1,i.m2])]]
             elif i != None and base_valid_new:
-                base_valid_new[1].append(i.mc)
+                base_valid_new[1].append([np.array([i.mc,i.m1,i.m2])])
                 base_valid_new[0].append(base_valid_set[0][idx])
         base_valid_set = [np.array(base_valid_new[0]),np.array(base_valid_new[1])]
 
@@ -423,9 +423,9 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
         base_test_new = False
         for idx,i in enumerate(base_test_set[1]):
             if i != None and not base_test_new:
-                base_test_new = [[base_test_set[0][idx]],[i.mc]]
+                base_test_new = [[base_test_set[0][idx]],[np.array([i.mc,i.m1,i.m2])]]
             elif i != None and base_test_new:
-                base_test_new[1].append(i.mc)
+                base_test_new[1].append([np.array([i.mc,i.m1,i.m2])])
                 base_test_new[0].append(base_test_set[0][idx])
         base_test_set = [np.array(base_test_new[0]),np.array(base_test_new[1])]
 
@@ -449,8 +449,7 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
 
         # loop over enough files to reach total number of time series
         for ps_idx,ds in enumerate(training_datasets[1:int(Nds)]):
-            print(ds)
-            with open(ds, 'rb') as rfp, open(training_paramsets[ps_idx], 'rb') as p:
+            with open(ds, 'rb') as rfp, open(training_paramsets[ps_idx+1], 'rb') as p:
                 train_set = pickle.load(rfp)[0]
                 train_par = np.array(pickle.load(p))
                 train_set = [train_set, train_par]
@@ -461,9 +460,9 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
                 train_new = False
                 for idx,i in enumerate(train_set[1]):
                     if i != None and not train_new:
-                        train_new = [[train_set[0][idx]],[i.mc]]
+                        train_new = [[train_set[0][idx]],[np.array([i.mc,i.m1,i.m2])]]
                     elif i != None and train_new:
-                        train_new[1].append(i.mc)
+                        train_new[1].append([np.array([i.mc,i.m1,i.m2])])
                         train_new[0].append(train_set[0][idx])
                 train_set = [np.array(train_new[0]),np.array(train_new[1])]
 
@@ -519,9 +518,9 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
                 valid_new = False
                 for idx,i in enumerate(valid_set[1]):
                     if i != None and not valid_new:
-                        valid_new = [[valid_set[0][idx]],[i.mc]]
+                        valid_new = [[valid_set[0][idx]],[np.array([i.mc,i.m1,i.m2])]]
                     elif i != None and valid_new:
-                        valid_new[1].append(i.mc)
+                        valid_new[1].append([np.array([i.mc,i.m1,i.m2])])
                         valid_new[0].append(valid_set[0][idx])
                 valid_set = [np.array(valid_new[0]),np.array(valid_new[1])]
 
@@ -535,9 +534,9 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
                 test_new = False
                 for idx,i in enumerate(test_set[1]):
                     if i != None and not test_new:
-                        test_new = [[test_set[0][idx]],[i.mc]]
+                        test_new = [[test_set[0][idx]],[np.array([i.mc,i.m1,i.m2])]]
                     elif i != None and test_new:
-                        test_new[1].append(i.mc)
+                        test_new[1].append([np.array([i.mc,i.m1,i.m2])])
                         test_new[0].append(test_set[0][idx])
                 test_set = [np.array(test_new[0]),np.array(test_new[1])]
 
@@ -573,6 +572,7 @@ def concatenate_datasets(datapath, snr, training_dtype, testing_dtype, Nts, Nval
 
         base_valid_set = aug_valid_set
         base_test_set = aug_test_set
+
 
     return base_train_set, base_valid_set, base_test_set
 
@@ -652,15 +652,13 @@ def load_data(args, netargs):
     print('Validation set dimensions: {0}'.format(x_val.shape))
     print('Test set dimensions: {0}'.format(x_test.shape))
 
-    return x_train, np.log(y_train), x_val, np.log(y_val), x_test, np.log(y_test)
+    #return x_train, np.log(y_train), x_val, np.log(y_val), x_test, np.log(y_test)
+    return x_train, y_train, x_val, y_val, x_test, y_test
 
 def main(args):
     # get arguments
     # convert args to correct format for network
     netargs = network_args(args)
-
-    #print(args.training_params+args.set_seed.split(',')[0]+'seed_params')
-    #sys.exit()
 
     # load in training set weighting parameters
     #for idx,file in enumerate(glob.glob('%s*' % args.training_params)):
@@ -728,9 +726,9 @@ def main(args):
     model.save('{0}/SNR{1}/run{2}/nn_model.hdf5'.format(args.outdir,args.SNR,Nrun))
 
     with open('{0}/SNR{1}/run{2}/targets.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
-        pickle.dump(np.exp(y_test), output_file)
+        pickle.dump(y_test, output_file)
     with open('{0}/SNR{1}/run{2}/preds.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
-        pickle.dump(np.exp(preds), output_file)
+        pickle.dump(preds, output_file)
     with open('{0}/SNR{1}/run{2}/history.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
         pickle.dump(hist.history, output_file)
     with open('{0}/SNR{1}/run{2}/test_results.pkl'.format(args.outdir,args.SNR,Nrun), 'wb') as output_file:
