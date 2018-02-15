@@ -26,16 +26,19 @@ class PEresults:
 dir = './history'
 dir2 = './dgx_history'
 snr = 10
-runs = [8]
+runs = [int(sys.argv[1])]
 runs2 = [3,4]
 
 for i,r in enumerate(runs):
     with open('{0}/SNR{1}/run{2}/targets.pkl'.format(dir,snr,r), 'rb') as rft, open('{0}/SNR{1}/run{2}/preds.pkl'.format(dir,snr,r)) as rfp:
         targets = pickle.load(rft)
-        preds = pickle.load(rfp) 
-        plt.scatter(targets,preds,s=2)
+        preds = pickle.load(rfp)
+        # plot true vs. predicted 
+        plt.scatter(targets,preds,s=0.1)
         plt.savefig('pe_scatter.png', dpi=1200, bbox_inches='tight')
         plt.close()
+
+        # plot loss function
         sys.exit()
     targets = np.load('{0}/SNR{1}/run{2}/targets.npy'.format(dir,snr,r))[:,1]
     preds = np.load('{0}/SNR{1}/run{2}/preds.npy'.format(dir,snr,r))[:,1]
