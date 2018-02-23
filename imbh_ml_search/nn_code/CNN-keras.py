@@ -187,7 +187,7 @@ def network(args, netargs, shape, outdir, data, targets):
 
         if int(op) == 1:
             count+=1
-            print(count)
+            #print(count)
             # standard convolutional layer with max pooling
             model.add(Conv1D(
                 netargs.Nfilters[i],
@@ -220,6 +220,7 @@ def network(args, netargs, shape, outdir, data, targets):
             model.add(GaussianDropout(netargs.dropout[i]))
 
             if netargs.pooling[i]:
+                print(netargs.pool_size[i])
                 model.add(MaxPool1D(
                     pool_size=netargs.pool_size[i],
                     strides=None,
@@ -278,7 +279,7 @@ def network(args, netargs, shape, outdir, data, targets):
     model.compile(
         loss="binary_crossentropy",
         optimizer=optimizer,
-        metrics=["accuracy", "categorical_crossentropy"]
+        metrics=["accuracy", "binary_crossentropy"]
     )
 
     model.summary()
@@ -295,13 +296,14 @@ def network(args, netargs, shape, outdir, data, targets):
 
     modelCheck = ModelCheckpoint('{0}/best_weights.hdf5'.format(outdir), monitor='val_acc', verbose=0, save_best_only=True,save_weights_only=True, mode='auto', period=0)
 
+
     print('Fitting model...')
     if args.lr != args.max_learning_rate:
         hist = model.fit(data, targets,
                          epochs=args.n_epochs,
                          batch_size=args.batch_size,
                          #class_weight=netargs.class_weight,
-                         validation_split=0.20,
+                         validation_split=0.10,
                          shuffle=True,
                          verbose=1,
                          callbacks=[clr, earlyStopping, redLR, modelCheck])
@@ -310,7 +312,7 @@ def network(args, netargs, shape, outdir, data, targets):
                          epochs=args.n_epochs,
                          batch_size=args.batch_size,
                          #class_weight=netargs.class_weight,
-                         validation_split=0.20,
+                         validation_split=0.10,
                          shuffle=True,
                          verbose=1,
                          callbacks=[earlyStopping, modelCheck])
@@ -326,7 +328,7 @@ def network(args, netargs, shape, outdir, data, targets):
     #                              sample_weight=None,
     #                              batch_size=args.batch_size, verbose=1)
 
-    preds = model.predict(p)
+    #preds = model.predict(p)
 
     gr, gt = (p[t==0] < 0.5).sum(), (t==0).sum()
     sr, st = (p[t==1] > 0.5).sum(), (t==1).sum()
@@ -334,7 +336,7 @@ def network(args, netargs, shape, outdir, data, targets):
     print i, "Glitch Accuracy: %1.3f" % (float(gr) / float(gt))
     print i, "Signal Accuracy: %1.3f" % (float(sr) / float(st))
 
-    return model, hist, eval_results, preds
+    return model, hist, p
 
 
 
@@ -374,27 +376,25 @@ def main(args):
 
 
     # train and test network
-    model, hist, eval_results, preds = network(args, netargs, shape, out,
+    model, hist, preds = network(args, netargs, shape, out,
                                                data, targets)
 
 
-    print('done!')
-    sys.exit()
-    with open('{0}/run{2}/args.pkl'.format(args.outdir, Nrun), "wb") as wfp:
+    with open('{0}/run{1}/args.pkl'.format(args.outdir, Nrun), "wb") as wfp:
         pickle.dump(args, wfp)
 
-    for m,r in zip(model.metrics_names, eval_results):
-        print('Test {0}: {1}'.format(m, r))
+    for m in model.metrics_names:
+        print('Test {0}:'.format(m))
 
     #shutil.copy('./runCNN.sh', '{0}/SNR{1}/run{2}'.format(args.outdir, args.SNR,Nrun))
 
-    model.save('{0}/run{2}/nn_model.hdf5'.format(args.outdir,Nrun))
-    np.save('{0}/run{2}/targets.npy'.format(args.outdir,Nrun),y_test)
-    np.save('{0}/run{2}/preds.npy'.format(args.outdir,Nrun), preds)
-    np.save('{0}/run{2}/history.npy'.format(args.outdir,Nrun), hist.history)
-    np.save('{0}/run{2}/test_results.npy'.format(args.outdir,Nrun),eval_results)
+    model.save('{0}/run{1}/nn_model.hdf5'.format(args.outdir,Nrun))
+    np.save('{0}/run{1}/targets.npy'.format(args.outdir,Nrun),y_test)
+    np.save('{0}/run{1}/preds.npy'.format(args.outdir,Nrun), preds)
+    np.save('{0}/run{1}/history.npy'.format(args.outdir,Nrun), hist.history)
+    #np.save('{0}/run{1}/test_results.npy'.format(args.outdir,Nrun),eval_results)
 
-    print('Results saved at: {0}/run{2}'.format(args.outdir,Nrun))
+    print('Results saved at: {0}/run{1}'.format(args.outdir,Nrun))
 
 if __name__ == '__main__':
     args = parser()

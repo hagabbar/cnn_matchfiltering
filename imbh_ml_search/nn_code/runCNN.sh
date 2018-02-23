@@ -23,7 +23,8 @@ export CUDA_VISIBLE_DEVICES=0
 
 # Location and name of training/validation/test sets:
 # set for use on deimos
-dataset=/home/hunter.gabbard/CBC/imbh_ml_search/data/outsmall.hdf
+dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/imbh_ml_search/data/h1_9000.hdf
+#dataset=
 
 Nts=100000               # Number of time series
 Nval=10000              # Number of time series for validation/testing
@@ -31,9 +32,9 @@ Ntot=10
 
 # Learning constraints:
 learning_rate=0.001
-max_learning_rate=0.005
+max_learning_rate=0.001
 decay=0.0
-stepsize=32
+stepsize=1000
 momentum=0.9
 n_epochs=200
 batch_size=32
@@ -59,17 +60,32 @@ beta_2=0.999
 # o classification -> 4
 ###########################################
 
+# Best network
 features="1,1,1,1,1,1,1,0,4"
-nkerns="8,16,32,64,64,128,128,64,1"
+nkerns="128,16,16,16,32,32,32,32,1"
 filter_size="32,16,16,16,8,8,4,4"
 filter_stride="1,1,1,1,1,1,1,1"
 dilation="1,1,1,1,1,1,1"
-pooling="0,0,0,0,0,0,0"
-pool_size="8,1,1,6,1,1,4"
-pool_stride="8,1,1,6,1,1,4"
+pooling="1,0,0,1,0,0,1"
+pool_size="4,1,1,4,1,1,1"
+pool_stride="4,1,1,4,1,1,1"
 dropout="0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0"
 
-functions="elu,elu,elu,elu,elu,elu,elu,elu,elu,sigmoid"
+functions="prelu,prelu,prelu,prelu,prelu,prelu,prelu,prelu,prelu,softmax"
+
+# Test network
+features="1,1,1,0,4"
+nkerns="16,16,16,32,1"
+filter_size="32,32,32"
+filter_stride="1,1,1"
+dilation="1,1,1"
+pooling="1,0,0"
+pool_size="2,1,1"
+pool_stride="2,1,1"
+dropout="0.0,0.0,0.0,0.5,0.0"
+
+functions="prelu,prelu,prelu,prelu,softmax"
+
 
 ./CNN-keras.py -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
  -d=$dataset -bs=$batch_size\
