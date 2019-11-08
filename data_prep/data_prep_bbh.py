@@ -3,12 +3,9 @@ import cPickle
 import numpy as np
 from scipy import integrate, interpolate
 from scipy.misc import imsave
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
 import lal
 import lalsimulation
-from pylal import antenna, cosmography
+from lal.antenna import AntennaResponse
 import argparse
 import time
 from scipy.signal import filtfilt, butter
@@ -407,7 +404,9 @@ def make_bbh(hp,hc,fs,ra,dec,psi,det):
     tvec = np.arange(len(hp))/float(fs)
 
     # compute antenna response and apply
-    Fp,Fc,_,_ = antenna.response( 0.0, ra, dec, 0, psi, 'radians', det )
+    resp = AntennaResponse(det, ra, dec, psi,scalar=True, vector=True, times=0.0)
+    Fp = resp.plus
+    Fc = resp.cross
     ht = hp*Fp + hc*Fc     # overwrite the timeseries vector to reuse it
 
     # compute time delays relative to Earth centre
