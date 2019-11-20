@@ -1,12 +1,6 @@
 #!/bin/bash
 
-# Use GPU:
-# May need flags
-#export THEANO_FLAGS="mode=FAST_RUN,device=cuda0,floatX=float32,gpuarray.preallocate=0.9"
-#export CPATH=$CPATH:/home/2136420/theanoenv/include
-#export LIBRARY_PATH=$LIBRARY_PATH:/home/2136420/theanoenv/lib
-#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/2136420/theanoenv/lib
-
+# specify GPU for Tensorflow
 export CUDA_VISIBLE_DEVICES=0
 
 #####################
@@ -21,59 +15,77 @@ export CUDA_VISIBLE_DEVICES=0
 # - metricmass
 # - astromass
 
+#######################
+# Data files and output
+#######################
+
+# sampling frequency
+fs=8192
+
 # Location and name of training/validation/test sets:
-# set for use on deimos
-training_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_training_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${2}_1seed_ts_0.sav
-val_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_validation_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${3}_1seed_ts_0.sav
-test_dataset=/home/hunter.gabbard/glasgow/github_repo_code/cnn_matchfiltering/data/BBH_testing_1s_8192Hz_10Ksamp_25n_iSNR${1}_Hdet_${3}_1seed_ts_0.sav
+training_dataset=/home/michael/datasets/bbh/BBH_training_1s_${fs}Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_1seed_ts_0.pkl
+val_dataset=/home/michael/datasets/bbh/BBH_validation_1s_${fs}Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_1seed_ts_0.pkl
+test_dataset=/home/michael/datasets/bbh/BBH_testing_1s_${fs}_10Ksamp_1n_iSNR${1}_Hdet_${3}_1seed_ts_0.pkl
 
+Nts=10000                 # Number of time series
+Nval=2000                 # Number of time series for validation/testing
+Ntot=1                    # Number of files available
 
-Nts=100000               # Number of time series
-Nval=10000              # Number of time series for validation/testing
-Ntot=10
+outdir="./history"         # Output directory
+
+############################
+# Learning rate and optimiser
+############################
+
+batch_size=1000            # Number of samples to pass at once
+n_epochs=200               # Number of epochs to train for
 
 # Learning constraints:
-learning_rate=0.001
-max_learning_rate=0.005
-decay=0.0
-stepsize=1000
-momentum=0.9
-n_epochs=200
-batch_size=1000
-patience=10
-LRpatience=5
+learning_rate=0.001        # Base learning rate
+max_learning_rate=0.001    # Maximum learning rate for cyclic learning rate (equal diasbles CLR)
+decay=0.0                  # Learning rate decay
+stepsize=1000              # Stepsize for cyclic learning rate
+patience=10                # Early stopping (stop after n epochs with no improvemnt of validation)
+LRpatience=5               # Update the LR every n epochs
 
-
-outdir="./history"
-
-# update function to use
-opt="Nadam"
-# parameters for particular optimizers
-nesterov=true
+# Optimiser
+opt="Nadam"                # Type
+# Optimiser specific parameters (not always used)
+momentum=0.9               # Momentum
+nesterov=true              # Use Nesterov momentum (when applicable)
+# More opitmiser parameters (see Keras docs for details)
 rho=0.9
 epsilon=0.000000001
 beta_1=0.9
 beta_2=0.999
 
 ###########################################
+# Network config
+###########################################
 # 'features' operations:
 # o covolutional layer + max-pooling -> 1
-# o fully connected layer -> 0
+# o fully connected layer (with flattening)-> 0
+# o fully connected layer -> 2
 # o classification -> 4
 ###########################################
 
+# Layer types (follows the above scheme)
 features="1,1,1,1,1,1,1,1,0,4"
 nkerns="8,16,16,32,64,64,128,128,64,2"
+# Convolution options
 filter_size="1-32,1-16,1-16,1-16,1-8,1-8,1-4,1-4"
 filter_stride="1-1,1-1,1-1,1-1,1-1,1-1,1-1,1-1,1-1"
 dilation="1-1,1-1,1-1,1-1,1-1,1-1,1-1,1-1"
+# Max pooling options
 pooling="1,0,0,0,1,0,0,1"
 pool_size="1-8,1-1,1-1,1-1,1-6,1-1,1-1,1-4"
 pool_stride="1-8,1-1,1-1,1-1,1-6,1-1,1-1,1-4"
+# Dropout
 dropout="0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0"
-
+# Activation functions
 functions="elu,elu,elu,elu,elu,elu,elu,elu,elu,softmax"
 
+# Run everything!
 ./CNN-keras.py -SNR=${1} -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
  -Trd=$training_dataset -Vald=$val_dataset -Tsd=$test_dataset -bs=$batch_size\
  -opt=$opt -lr=$learning_rate -mlr=$max_learning_rate -NE=$n_epochs -dy=$decay \
