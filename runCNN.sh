@@ -25,7 +25,7 @@ fs=8192
 # Location and name of training/validation/test sets:
 training_dataset=/home/michael/datasets/bbh/BBH_training_1s_${fs}Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_1seed_ts_0.pkl
 val_dataset=/home/michael/datasets/bbh/BBH_validation_1s_${fs}Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_1seed_ts_0.pkl
-test_dataset=/home/michael/datasets/bbh/BBH_testing_1s_${fs}_10Ksamp_1n_iSNR${1}_Hdet_${3}_1seed_ts_0.pkl
+test_dataset=/home/michael/datasets/bbh/BBH_testing_1s_${fs}Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_1seed_ts_0.pkl
 
 Nts=10000                 # Number of time series
 Nval=2000                 # Number of time series for validation/testing
@@ -37,12 +37,12 @@ outdir="./history"         # Output directory
 # Learning rate and optimiser
 ############################
 
-batch_size=1000            # Number of samples to pass at once
+batch_size=100             # Number of samples to pass at once
 n_epochs=200               # Number of epochs to train for
 
 # Learning constraints:
-learning_rate=0.001        # Base learning rate
-max_learning_rate=0.001    # Maximum learning rate for cyclic learning rate (equal diasbles CLR)
+learning_rate=0.01       # Base learning rate
+max_learning_rate=0.01   # Maximum learning rate for cyclic learning rate (equal diasbles CLR)
 decay=0.0                  # Learning rate decay
 stepsize=1000              # Stepsize for cyclic learning rate
 patience=10                # Early stopping (stop after n epochs with no improvemnt of validation)
@@ -86,7 +86,7 @@ dropout="0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0"
 functions="elu,elu,elu,elu,elu,elu,elu,elu,elu,softmax"
 
 # Run everything!
-./CNN-keras.py -SNR=${1} -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
+./CNN-keras.py -SNR=${1} -FS=$fs -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
  -Trd=$training_dataset -Vald=$val_dataset -Tsd=$test_dataset -bs=$batch_size\
  -opt=$opt -lr=$learning_rate -mlr=$max_learning_rate -NE=$n_epochs -dy=$decay \
  -ss=$stepsize -mn=$momentum --nesterov=$nesterov --rho=$rho --epsilon=$epsilon \

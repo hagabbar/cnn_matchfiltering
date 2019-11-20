@@ -2,6 +2,7 @@
 
 # specify GPU for Tensorflow
 export CUDA_VISIBLE_DEVICES=0
+export TF_CPP_MIN_LOG_LEVEL=2
 
 #####################
 # Running the network
@@ -86,7 +87,7 @@ dropout="0.0,0.0,0.0,0.0,0.0"
 functions="elu,elu,elu,elu,softmax"
 
 # Run everything
-./CNN-keras.py -SNR=8 -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
+./CNN-keras.py -SNR=8 -FS=$fs -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
  -Trd=$training_dataset -Vald=$val_dataset -Tsd=$test_dataset -bs=$batch_size\
  -opt=$opt -lr=$learning_rate -mlr=$max_learning_rate -NE=$n_epochs -dy=$decay \
  -ss=$stepsize -mn=$momentum --nesterov=$nesterov --rho=$rho --epsilon=$epsilon \
