@@ -506,13 +506,13 @@ def main():
 
     	# pickle the results
     	# save the timeseries data to file
-    	f = open(args.basename + '_ts_' + str(i) + '.sav', 'wb')
+    	f = open(args.basename + '_ts_' + str(i) + '.pkl', 'wb')
     	cPickle.dump(ts, f, protocol=cPickle.HIGHEST_PROTOCOL)
     	f.close()
     	print('{}: saved timeseries data to file'.format(time.asctime()))
 
     	# save the sample parameters to file
-    	f = open(args.basename + '_params_' + str(i) + '.sav', 'wb')
+    	f = open(args.basename + '_params_' + str(i) + '.pkl', 'wb')
     	cPickle.dump(par, f, protocol=cPickle.HIGHEST_PROTOCOL)
     	f.close()
     	print('{}: saved parameter data to file'.format(time.asctime()))
