@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
 from __future__ import print_function, division
+
+import os
 import argparse
 import shutil
+import numpy as np
+from six.moves import cPickle as pickle
+np.random.seed(1234)
+
+from sklearn import preprocessing
 import keras
 from keras.models import Sequential
-import numpy as np
-np.random.seed(1234)
-import cPickle as pickle
-import h5py
 from keras.layers import Conv2D, MaxPool2D,Dense, Activation, Dropout, GaussianDropout, ActivityRegularization, Flatten
 from keras.optimizers import *
 from keras.layers.normalization import BatchNormalization
@@ -17,20 +20,14 @@ from keras import regularizers
 from keras.activations import softmax, relu, elu
 from keras.layers.advanced_activations import LeakyReLU, PReLU
 from keras.utils import to_categorical
-import os, sys, shutil
-import glob
-from math import exp, log
-#import tensorflow as tf
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from keras.models import load_model
 
 from clr_callback import *
-from sklearn import preprocessing
 
-from tensorflow.python.client import device_lib
-print(device_lib.list_local_devices())
 
 class bbhparams:
+    """Class that stores BBH parameters"""
     def __init__(self,mc,M,eta,m1,m2,ra,dec,iota,psi,idx,fmin,snr,SNR):
         self.mc = mc
         self.M = M
@@ -46,6 +43,7 @@ class bbhparams:
         self.snr = snr
         self.SNR = SNR
 
+
 def parser():
     """
     Parses command line arguments
@@ -59,32 +57,26 @@ def parser():
     # arguments for data
     parser.add_argument('-SNR', '--SNR', type=int,
                         help='')
+    parser.add_argument('-FS', '--sampling_frequency', type=int, default=8192,
+                        help='')
     parser.add_argument('-Nts', '--Ntimeseries', type=int, default=10000,
                         help='number of time series for training')
-    #parser.add_argument('-ds', '--set-seed', type=str,
-    #                    help='seed number for each training/validaiton/testing set')
     parser.add_argument('-Ntot', '--Ntotal', type=int, default=10,
                         help='number of available datasets with the same name as specified dataset')
     parser.add_argument('-Nval', '--Nvalidation', type=int, default=10000,
                         help='')
     parser.add_argument('-Trd', '--training_dataset', type=str,
-                       default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav', 
+                       default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav',
                        help='path to the data')
     parser.add_argument('-Trp', '--training_params', type=str, #nargs='+',
                        default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_params.sav',
                        help='path to the training params')
     parser.add_argument('-Vald', '--validation_dataset', type=str,
-                        default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav', 
+                        default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav',
                         help='path to the data')
-    #parser.add_argument('-Valp', '--validation_params', type=str,
-    #                    default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_params.sav',
-    #                    help='path to the validation params')
     parser.add_argument('-Tsd', '--test_dataset', type=str,
-                        default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav', 
+                        default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_ts.sav',
                         help='path to the data')
-    #parser.add_argument('-Tsp', '--test_params', type=str,
-    #                    default='./deepdata_bbh/BBH_1s_8192Hz_3K_iSNR10_z1_params.sav',
-    #                    help='path to the testing params')
     parser.add_argument('-bs', '--batch_size', type=int, default=20,
                         help='size of batches used for training/validation')
     parser.add_argument('-nw', '--noise_weight', type=float, default=1.0,
@@ -118,7 +110,7 @@ def parser():
                         help='')
     parser.add_argument('-pt', '--patience', type=int, default=10,
                         help='')
-    parser.add_argument('-lpt', '--LRpatience', type=int, default=5,
+    parser.add_argument('-lpt', '--LRpatience', type=int, default=0,
                         help='')
 
     #arguments for network
@@ -146,6 +138,9 @@ def parser():
                         help='dropout for the fully connected layers')
     parser.add_argument('-fn', '--activation_functions', type=str, default='elu,elu,elu,elu,elu,softmax',
                         help='activation functions for layers')
+    parser.add_argument('-bn', '--batchnorm', type=str, default='enabled',
+                        help='enable batchnormalisation in convolutional layers')
+
 
     # general arguments
     parser.add_argument('-od', '--outdir', type=str, default='./history',
@@ -157,20 +152,20 @@ def parser():
 
 
 class network_args:
+    """Class to store arguments for constructing the network"""
     def __init__(self, args):
         self.features = np.array(args.features.split(','))
         self.num_classes = 2
-        self.class_weight = {0:args.noise_weight, 1:args.sig_weight}
         self.Nfilters = np.array(args.nfilters.split(",")).astype('int')
         self.kernel_size = np.array([i.split("-") for i in np.array(args.filter_size.split(","))]).astype('int')
         self.stride = np.array([i.split("-") for i in np.array(args.filter_stride.split(","))]).astype('int')
         self.dilation = np.array([i.split("-") for i in np.array(args.dilation.split(","))]).astype('int')
+        self.batchnorm = args.batchnorm
         self.activation = np.array(args.activation_functions.split(','))
         self.dropout = np.array(args.dropout.split(",")).astype('float')
         self.pooling = np.array(args.pooling.split(',')).astype('bool')
         self.pool_size = np.array([i.split("-") for i in np.array(args.pool_size.split(","))]).astype('int')
         self.pool_stride = np.array([i.split("-") for i in np.array(args.pool_stride.split(","))]).astype('int')
-
 
 
 def choose_optimizer(args):
@@ -193,7 +188,7 @@ def choose_optimizer(args):
         return Nadam(lr=lr, beta_1=args.beta_1, beta_2=args.beta_2, epsilon=args.epsilon, schedule_decay=args.decay)
 
 
-def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test, y_test, samp_weights):
+def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test, y_test):
 
     model = Sequential()
 
@@ -224,17 +219,18 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
             ))
 
             if netargs.activation[i] == 'leakyrelu':
-                model.add(LeakyReLU(alpha=0.01))#netargs.activation[i]))
+                model.add(LeakyReLU(alpha=0.01))
             elif netargs.activation[i] == 'prelu':
                 model.add(PReLU())
             else:
                 model.add(Activation(netargs.activation[i]))
 
-            model.add(BatchNormalization(
-                axis=1
-            ))
+            if netargs.batchnorm == 'enabled':
+                model.add(BatchNormalization(axis=-1))
 
-            model.add(GaussianDropout(netargs.dropout[i]))
+            # Non-standard to use dropout in conv. layers
+            if netargs.dropout[i]:
+                model.add(GaussianDropout(netargs.dropout[i]))
 
             if netargs.pooling[i]:
                 model.add(MaxPool2D(
@@ -245,7 +241,7 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
                 ))
 
         elif int(op) == 0:
-            # standard fully conected layer
+            # standard fully conected layer with flatten
             model.add(Flatten())
             model.add(Dense(
                 netargs.Nfilters[i]
@@ -259,24 +255,25 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
             else:
                 model.add(Activation(netargs.activation[i]))
 
-            model.add(GaussianDropout(netargs.dropout[i]))
+            if netargs.dropout[i]:
+                model.add(GaussianDropout(netargs.dropout[i]))
 
         elif int(op) == 2:
             # standard fully conected layer
-            #model.add(Flatten())
             model.add(Dense(
                 netargs.Nfilters[i]
                 #kernel_regularizer=regularizers.l1(0.01)
             ))
 
             if netargs.activation[i] == 'leakyrelu':
-                model.add(LeakyReLU(alpha=0.01))#netargs.activation[i]))
+                model.add(LeakyReLU(alpha=0.01))
             elif netargs.activation[i] == 'prelu':
                 model.add(PReLU())
             else:
                 model.add(Activation(netargs.activation[i]))
 
-            model.add(GaussianDropout(netargs.dropout[i]))
+            if netargs.dropout[i]:
+                model.add(GaussianDropout(netargs.dropout[i]))
 
         elif int(op) == 4:
             # softmax output layer
@@ -284,7 +281,7 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
                 netargs.num_classes
             ))
             if netargs.activation[i] == 'leakyrelu':
-                model.add(LeakyReLU(alpha=0.01))#netargs.activation[i]))
+                model.add(LeakyReLU(alpha=0.01))
             elif netargs.activation[i] == 'prelu':
                 model.add(PReLU())
             else:
@@ -300,39 +297,34 @@ def network(args, netargs, shape, outdir, x_train, y_train, x_val, y_val, x_test
 
     model.summary()
 
-    #TODO: add options to enable/disable certain callbacks
-
-
-    clr = CyclicLR(base_lr=args.lr, max_lr=args.max_learning_rate, step_size=args.stepsize)
-
-    earlyStopping = EarlyStopping(monitor='val_acc', patience=args.patience, verbose=0, mode='auto')
-
-    redLR = ReduceLROnPlateau(monitor='val_acc', factor=0.1, patience=args.LRpatience, verbose=0, mode='auto',
-                              epsilon=0.0001, cooldown=0, min_lr=0)
-
-    modelCheck = ModelCheckpoint('{0}/best_weights.hdf5'.format(outdir), monitor='val_acc', verbose=0, save_best_only=True,save_weights_only=True, mode='auto', period=0)
+    # callbacks
+    callbacks = list()
+    if args.lr != args.max_learning_rate:
+        print('Cyclic LR enabled')
+        clr = CyclicLR(base_lr=args.lr, max_lr=args.max_learning_rate, step_size=args.stepsize)
+        callbacks.append(clr)
+    if args.patience:
+        print('Early stopping enabled')
+        earlyStopping = EarlyStopping(monitor='val_acc', patience=args.patience, verbose=0, mode='auto')
+        callbacks.append(earlyStopping)
+    if args.LRpatience:
+        print('Learning rate reduction enabled')
+        redLR = ReduceLROnPlateau(monitor='val_acc', factor=0.1, patience=args.LRpatience, verbose=0, mode='auto',
+                                  epsilon=0.0001, cooldown=0, min_lr=0)
+        callbacks.append(redLR)
+    # save best model
+    modelCheck = ModelCheckpoint('{0}/best_weights.hdf5'.format(outdir), monitor='val_acc', verbose=0,
+                                 save_best_only=True, save_weights_only=True, mode='max', period=0)
+    callbacks.append(modelCheck)
 
     print('Fitting model...')
-    if args.lr != args.max_learning_rate:
-        hist = model.fit(x_train, y_train,
-                         epochs=args.n_epochs,
-                         batch_size=args.batch_size,
-                         #class_weight=netargs.class_weight,
-                         sample_weight=samp_weights,
-                         validation_data=(x_val, y_val),
-                         shuffle=True,
-                         verbose=1,
-                         callbacks=[clr, earlyStopping, redLR, modelCheck])
-    else:
-        hist = model.fit(x_train, y_train,
-                         epochs=args.n_epochs,
-                         batch_size=args.batch_size,
-                         #class_weight=netargs.class_weight,
-                         sample_weight=samp_weights,
-                         validation_data=(x_val, y_val),
-                         shuffle=True,
-                         verbose=1,
-                         callbacks=[earlyStopping, modelCheck])
+    hist = model.fit(x_train, y_train,
+                     epochs=args.n_epochs,
+                     batch_size=args.batch_size,
+                     validation_data=(x_val, y_val),
+                     shuffle=True,
+                     verbose=1,
+                     callbacks=callbacks)
 
     print('Evaluating model...')
 
@@ -366,13 +358,13 @@ def concatenate_datasets(training_dataset, val_dataset, test_dataset, Nts, Nval 
 
     # load in dataset 0
     with open(training_dataset, 'rb') as rfp:
-        base_train_set = pickle.load(rfp)
+        base_train_set = pickle.load(rfp, encoding='latin1')
 
     with open(val_dataset, 'rb') as rfp:
-        base_valid_set = pickle.load(rfp)
+        base_valid_set = pickle.load(rfp, encoding='latin1')
 
     with open(test_dataset, 'rb') as rfp:
-        base_test_set = pickle.load(rfp)
+        base_test_set = pickle.load(rfp, encoding='latin1')
 
     # size of data sets
     size = len(base_train_set[0])
@@ -503,20 +495,20 @@ def truncate_dataset(dataset, start, length):
 
 
 
-def load_data(args, netargs):
+def load_data(args, netargs, start=2048, length=8192):
     """
     Load the data set
     :param dataset: the path to the data set (string)
     :param Nts: total number of time series for training
-    :return: tuple of theano data set
+    :param start: start of signal in time series
+    :param length: length of segment with data
+    :return: tuple of data set
     """
 
     train_set, valid_set, test_set = concatenate_datasets(
         args.training_dataset, args.validation_dataset, args.test_dataset,
         args.Ntimeseries,Nval=args.Nvalidation, Ntot=args.Ntotal)
 
-    start = 4096
-    length = 8192
     print('Truncating training set')
     train_set = truncate_dataset(train_set,start, length)
     print('Truncating validation set')
@@ -529,8 +521,8 @@ def load_data(args, netargs):
     yshape = train_set[0].shape[2]
     channels = 1
 
+    # Options to rescale data
     rescale = False
-
     if rescale:
         print('Rescaling data')
         for i in range(Ntrain):
@@ -560,47 +552,11 @@ def main(args):
     # convert args to correct format for network
     netargs = network_args(args)
 
-    #print(args.training_params+args.set_seed.split(',')[0]+'seed_params')
-    #sys.exit()
-
-    # load in training set weighting parameters
-    for idx,file in enumerate(glob.glob('%s*' % args.training_params)):
-        if idx == 0:
-            with open(file, 'rb') as rfp:
-                tr_params = np.array(pickle.load(rfp))
-        else:
-            with open(file, 'rb') as rfp:
-                tr_params = np.append(tr_params,np.array(pickle.load(rfp)))
-
-    # calculate unormalized weighting vector
-    final_tr_params = []
-    sig_params = []
-    for samp in tr_params:
-        if samp == None:
-            final_tr_params.append(1)
-        elif samp != None:
-            final_tr_params.append(samp.mc**(-5.0/3.0))
-            sig_params.append(samp.mc**(-5.0/3.0))
-
-
-    if samp != None:
-        # normalize weighting vector
-        sig_params /= np.max(np.abs(np.array(sig_params)),axis=0)
-        sig_params *= 1e0
-        #sig_params = np.array(sig_params)
-        count = 0
-        final_tr_params = []
-        for samp in tr_params:
-            if samp == None:
-                final_tr_params.append(1/np.max(np.abs(np.array(sig_params)),axis=0))
-            if samp != None:
-                final_tr_params.append(sig_params[count]) 
-                count += 1
-
-    final_tr_params = np.array(final_tr_params)
-
     # load in time series info
-    x_train, y_train, x_val, y_val, x_test, y_test = load_data(args, netargs)
+    fs = args.sampling_frequency
+    print('Sampling frequency: {0}Hz'.format(fs))
+    # data is 1 second with 0.5 seconds padding so start at half the sampling frequency
+    x_train, y_train, x_val, y_val, x_test, y_test = load_data(args, netargs, start=int(fs/2), length=fs)
 
     if not os.path.exists('{0}/SNR{1}'.format(args.outdir,args.SNR)):
         os.makedirs('{0}/SNR{1}'.format(args.outdir,args.SNR))
@@ -615,9 +571,10 @@ def main(args):
 
     # train and test network
     model, hist, eval_results, preds = network(args, netargs, shape, out,
-                                               x_train, y_train, x_val, y_val, x_test, y_test, final_tr_params)
+                                               x_train, y_train, x_val, y_val, x_test, y_test)
 
-
+    # Save everything
+    # save input arguments
     with open('{0}/SNR{1}/run{2}/args.pkl'.format(args.outdir, args.SNR, Nrun), "wb") as wfp:
         pickle.dump(args, wfp)
 

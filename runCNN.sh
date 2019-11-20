@@ -84,6 +84,8 @@ pool_stride="1-8,1-1,1-1,1-1,1-6,1-1,1-1,1-4"
 dropout="0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0"
 # Activation functions
 functions="elu,elu,elu,elu,elu,elu,elu,elu,elu,softmax"
+# Batch normalisation
+batchnorm="enabled"
 
 # Run everything!
 ./CNN-keras.py -SNR=${1} -FS=$fs -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
@@ -93,5 +95,5 @@ functions="elu,elu,elu,elu,elu,elu,elu,elu,elu,softmax"
  --beta_1=$beta_1 --beta_2=$beta_2 -pt=$patience -lpt=$LRpatience \
  -f=$features  -nf=$nkerns -fs=$filter_size -fst=$filter_stride -fpd=$filter_pad \
  -dl=$dilation  -p=$pooling -ps=$pool_size -pst=$pool_stride -ppd=$pool_pad \
- -dp=$dropout -fn=$functions \
+ -dp=$dropout -fn=$functions -bn=$batchnorm\
  -od=$outdir

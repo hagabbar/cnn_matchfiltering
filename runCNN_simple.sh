@@ -46,8 +46,8 @@ learning_rate=0.001        # Base learning rate
 max_learning_rate=0.001    # Maximum learning rate for cyclic learning rate (equal diasbles CLR)
 decay=0.0                  # Learning rate decay
 stepsize=1000              # Stepsize for cyclic learning rate
-patience=20                # Early stopping (stop after n epochs with no improvemnt of validation)
-LRpatience=1000            # Update the LR every n epochs
+patience=10                # Early stopping (stop after n epochs with no improvemnt of validation)
+LRpatience=0               # Update the LR every n epochs (0 = disabled)
 
 # Optimiser
 opt="Adam"                 # Type
@@ -85,6 +85,8 @@ pool_stride="1-4,1-4"
 dropout="0.0,0.0,0.0,0.0,0.0"
 # Activation funcrtions
 functions="elu,elu,elu,elu,softmax"
+# Batch normalisation
+batchnorm="disabled"
 
 # Run everything
 ./CNN-keras.py -SNR=8 -FS=$fs -Nts=$Nts -Ntot=$Ntot -Nval=$Nval \
@@ -94,5 +96,5 @@ functions="elu,elu,elu,elu,softmax"
  --beta_1=$beta_1 --beta_2=$beta_2 -pt=$patience -lpt=$LRpatience \
  -f=$features  -nf=$nkerns -fs=$filter_size -fst=$filter_stride -fpd=$filter_pad \
  -dl=$dilation  -p=$pooling -ps=$pool_size -pst=$pool_stride -ppd=$pool_pad \
- -dp=$dropout -fn=$functions \
+ -dp=$dropout -fn=$functions -bn=$batchnorm\
  -od=$outdir
