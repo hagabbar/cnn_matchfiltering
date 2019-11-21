@@ -23,7 +23,7 @@ from keras.utils import to_categorical
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from keras.models import load_model
 
-from clr_callback import *
+from clr.clr_callback import CyclicLR
 
 
 class bbhparams:
