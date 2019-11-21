@@ -20,11 +20,11 @@ export TF_CPP_MIN_LOG_LEVEL=2
 # Data files and output
 #######################
 
-# sampling frequency
-fs=1024
+fs=1024                    # Sampling frequency
+nr=1                       # Noise realisations for training
 
 # Location and name of training/validation/test sets:
-training_dataset=/home/michael/datasets/bbh/BBH_training_1s_${fs}Hz_10Ksamp_1n_iSNR${1}_Hdet_${2}_1seed_ts_0.pkl
+training_dataset=/home/michael/datasets/bbh/BBH_training_1s_${fs}Hz_10Ksamp_${nr}n_iSNR${1}_Hdet_${2}_1seed_ts_0.pkl
 val_dataset=/home/michael/datasets/bbh/BBH_validation_1s_${fs}Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_1seed_ts_0.pkl
 test_dataset=/home/michael/datasets/bbh/BBH_testing_1s_${fs}Hz_10Ksamp_1n_iSNR${1}_Hdet_${3}_1seed_ts_0.pkl
 
